@@ -3,7 +3,7 @@ import json, os, sys, threading, webbrowser, socket, argparse, subprocess, base6
 import urllib.request
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from datetime import date
-from core import Store, FileBusy, CATEGORIES, TYPES, INV_TYPES, UNITS, WAREHOUSE
+from core import Store, FileBusy, CATEGORIES, TYPES, INV_TYPES, UNITS, WAREHOUSE, norm_currency as norm_cur
 import storage
 import reports
 import importer
@@ -11,12 +11,12 @@ import clothes
 import updater
 from urllib.parse import urlparse, parse_qs, quote, unquote
 
-VERSION = "1.9.4"
+VERSION = "1.9.5"
 BASE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 LOCK = threading.Lock()
 PENDING = False
 LAST_WRITE = 0.0
-WRITE_PATHS = ("/api/movement", "/api/invoice", "/api/item", "/api/item_update", "/api/image", "/api/supplier", "/api/supplier_update", "/api/settings", "/api/restore", "/api/count", "/api/import_apply", "/api/sort_items", "/api/item_delete", "/api/items_delete", "/api/invoice_delete", "/api/supplier_delete", "/api/movement_delete", "/api/cl_item", "/api/cl_receive", "/api/cl_issue", "/api/cl_adjust", "/api/cl_doc_delete", "/api/cl_item_delete", "/api/cl_move_delete", "/api/cl_buy", "/api/cl_buy_delete")
+WRITE_PATHS = ("/api/movement", "/api/invoice", "/api/item", "/api/item_update", "/api/image", "/api/supplier", "/api/supplier_update", "/api/settings", "/api/restore", "/api/count", "/api/import_apply", "/api/inv_import_apply", "/api/sort_items", "/api/item_delete", "/api/items_delete", "/api/invoice_delete", "/api/supplier_delete", "/api/movement_delete", "/api/cl_item", "/api/cl_receive", "/api/cl_issue", "/api/cl_adjust", "/api/cl_doc_delete", "/api/cl_item_delete", "/api/cl_move_delete", "/api/cl_buy", "/api/cl_buy_delete")
 STORE = None
 PORT = 0
 DATA = None
@@ -150,6 +150,14 @@ class H(BaseHTTPRequestHandler):
             self.send(200, to_json(dict(app="jard-almat3am", version=VERSION)))
         elif path == "/api/update_check":
             self.send(200, to_json(updater.check(VERSION)))
+        elif path == "/api/invoice_template":
+            body = importer.invoice_template()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            self.send_header("Content-Disposition", "attachment; filename=\"invoice_template.xlsx\"; filename*=UTF-8''" + quote("قالب_فاتورة_شراء.xlsx"))
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
         elif path == "/api/data":
             try:
                 with LOCK:
@@ -298,6 +306,53 @@ class H(BaseHTTPRequestHandler):
                             except Exception:
                                 pass
                         res["images"] = n_img
+            elif p in ("/api/inv_import_preview", "/api/inv_import_apply"):
+                raw = base64.b64decode((b.get("data") or "").split(",")[-1] or b"")
+                with LOCK:
+                    items = STORE.items()
+                    parsed = importer.parse_invoice(raw, {i["code"].casefold(): i for i in items}, {i["name"].casefold(): i for i in items})
+                    if p == "/api/inv_import_preview":
+                        res.update(parsed)
+                    else:
+                        sup, cur = b.get("supplier", ""), b.get("currency", "")
+                        lines = [x for x in parsed["lines"] if x["status"] != "error"]
+                        new = [x for x in lines if x["status"] == "new"]
+                        if not lines:
+                            raise ValueError("ما كو سطور صالحة بالملف")
+                        if new and not b.get("create_missing"):
+                            raise ValueError(f"فيه {len(new)} مادة جديدة مو مسجلة. فعّل «أنشئ المواد الجديدة» أو أضفها أول")
+                        DATA.make_backup("before-import")
+                        taken = {i["code"].casefold() for i in items}
+                        n = 0
+                        rows, order = [], sorted(lines, key=lambda x: x["row"])
+                        for x in new:
+                            if not x["code"]:
+                                while True:
+                                    n += 1
+                                    c = f"ITM-{n:04d}"
+                                    if c.casefold() not in taken:
+                                        break
+                                x["code"] = c
+                            taken.add(x["code"].casefold())
+                            x["unit"] = "قطعة"
+                            rows.append(dict(row=x["row"], code=x["code"], name=x["name"] or x["code"], category="غير مصنف", usage="", carton=0, shad=0,
+                                             price=x["price"], opening=0, min=0, supplier=sup, currency=norm_cur(cur), status="new", message="",
+                                             has=dict(currency=True, price=True, min=False, carton=False, shad=False, usage=False, supplier=True, category=False)))
+                        if rows:
+                            STORE.import_items(rows, "skip")
+                            imgs, rows_idx = importer.extract_images(raw), [x["row"] for x in order]
+                            for x in new:
+                                nxt = next((r for r in rows_idx if r > x["row"]), 10**9)
+                                k = next((r for r in sorted(imgs) if x["row"] <= r < nxt), None)
+                                if k is not None:
+                                    try:
+                                        STORE.set_image(x["code"], save_image(x["code"], imgs[k][0], imgs[k][1]))
+                                    except Exception:
+                                        pass
+                        res["no"] = STORE.add_invoice(dict(type="شراء", party=sup, currency=cur, date=b.get("date"), note=b.get("note", ""),
+                                                           update_prices=bool(b.get("update_prices", True)),
+                                                           lines=[dict(code=x["code"], unit=x["unit"], qty=x["qty"], price=x["price"]) for x in lines]))
+                        res.update(created=len(new), lines=len(lines), skipped=parsed["counts"]["error"])
             elif p == "/api/items_delete":
                 with LOCK:
                     DATA.make_backup("before-delete")

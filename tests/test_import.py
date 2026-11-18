@@ -181,3 +181,44 @@ class ImportImagesTests(unittest.TestCase):
     def test_no_images_is_fine(self):
         self.assertEqual([r for r in importer.extract_images(importer.build_template(["x"])) if r > 4], [])
         self.assertEqual(importer.extract_images(b"not an excel file"), {})
+
+
+class InvoiceImportTests(unittest.TestCase):
+    def make(self, rows, header):
+        from openpyxl import Workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.append(header)
+        for r in rows:
+            ws.append(r)
+        out = io.BytesIO()
+        wb.save(out)
+        return out.getvalue()
+
+    def test_template_roundtrip(self):
+        r = importer.parse_invoice(importer.invoice_template(), {"pl-001": {"code": "PL-001", "name": "صحن تقديم"}}, {})
+        self.assertEqual(r["counts"], {"exists": 1, "new": 0, "error": 0, "total": 1})
+        self.assertEqual((r["lines"][0]["qty"], r["lines"][0]["price"], r["lines"][0]["unit"]), (120, 2500, "قطعة"))
+
+    def test_supplier_style_headers_and_statuses(self):
+        raw = self.make([["9673", "Board", 10, 38.35], ["NEW-1", "New thing", 3, 2], [None, "No code", 5, 1.5], ["X", "Bad", "abc", 1], [None, None, None, None]],
+                        ["كود المادة", "تفاصيل المادة", "الكمية المباعة", "سعر البيع"])
+        r = importer.parse_invoice(raw, {"9673": {"code": "9673", "name": "Board"}}, {})
+        st = [x["status"] for x in r["lines"]]
+        self.assertEqual(st, ["exists", "new", "new", "error"])
+        self.assertEqual(r["lines"][2]["code"], "")                 # كود تلقائي بوقت الإنشاء
+
+    def test_serial_number_column_is_not_a_code(self):
+        raw = self.make([[1, "A thing", 4, 2.0], [2, "B thing", 2, 3.0]], ["Item No.", "Product Description", "Qty", "U.Price"])
+        r = importer.parse_invoice(raw)
+        self.assertTrue(all(x["code"] == "" for x in r["lines"]))
+
+    def test_name_match_when_no_code_column(self):
+        raw = self.make([["صحن تقديم", 5, 100]], ["المادة", "الكمية", "السعر"])
+        r = importer.parse_invoice(raw, {}, {"صحن تقديم": {"code": "PL-001", "name": "صحن تقديم"}})
+        self.assertEqual((r["lines"][0]["code"], r["lines"][0]["status"]), ("PL-001", "exists"))
+
+    def test_rejects_file_without_columns(self):
+        raw = self.make([["a", "b"]], ["x", "y"])
+        with self.assertRaises(ValueError):
+            importer.parse_invoice(raw)

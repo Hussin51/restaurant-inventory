@@ -187,6 +187,99 @@ def extract_images(data):
     return out
 
 
+# ---------------------------------------------------------------- استيراد فاتورة شراء من إكسل
+INV_COLS = {
+    "code": ["الكود", "كود", "كود المادة", "رمز", "رقم المادة", "code", "item code", "item no", "item no.", "sku", "zad code", "mould no", "model"],
+    "name": ["المادة", "اسم المادة", "تفاصيل المادة", "الاسم", "الوصف", "البيان", "name", "description", "product description", "item", "item name", "product"],
+    "qty": ["الكمية", "الكمية المباعة", "الكميه", "العدد", "qty", "quantity", "qtty", "pcs", "sales qtty", "sales qtty."],
+    "price": ["السعر", "سعر البيع", "سعر القطعة", "سعر الوحدة", "سعر", "price", "unit price", "u.price", "u price"],
+    "unit": ["الوحدة", "unit"],
+}
+_INV_ALIAS = {}
+for _k, _al in INV_COLS.items():
+    for _a in _al:
+        _INV_ALIAS.setdefault(_norm(_a), _k)
+
+
+def invoice_template():
+    """قالب بسيط لفاتورة شراء: الكود، المادة، الكمية، سعر القطعة."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "الفاتورة"
+    ws.sheet_view.rightToLeft = True
+    hs = ["الكود", "المادة", "الكمية", "سعر القطعة", "الوحدة"]
+    for j, h in enumerate(hs, 1):
+        c = ws.cell(1, j, h)
+        c.font, c.fill, c.alignment = Font(bold=True, color="FFFFFF"), PatternFill("solid", fgColor="1F4E78"), Alignment(horizontal="center")
+        ws.column_dimensions[c.column_letter].width = [16, 34, 12, 14, 12][j - 1]
+    for j, v in enumerate(["PL-001", "صحن تقديم", 120, 2500, "قطعة"], 1):
+        ws.cell(2, j, v).alignment = Alignment(horizontal="center")
+    ws["G1"] = "الوحدة اختيارية (قطعة أو كارتون أو شد). إذا تركتها فاضية تُعتبر قطعة."
+    out = io.BytesIO()
+    wb.save(out)
+    return out.getvalue()
+
+
+def parse_invoice(data, by_code=None, by_name=None):
+    """يقرأ فاتورة شراء بإكسل (أي ترتيب أعمدة): يرجّع {lines, counts, header}. ما يغيّر شي.
+    by_code: {code.casefold(): item}، by_name: {name.casefold(): item}."""
+    from openpyxl import load_workbook
+    by_code, by_name = by_code or {}, by_name or {}
+    try:
+        wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    except Exception:
+        raise ValueError("هذا مو ملف إكسل (.xlsx) صحيح")
+    ws = wb[wb.sheetnames[0]]
+    rows = list(ws.iter_rows(values_only=True))
+    hdr, cols = None, {}
+    for i, row in enumerate(rows[:40]):
+        found = {}
+        for j, v in enumerate(row):
+            k = _INV_ALIAS.get(_norm(v))
+            if k and k not in found:
+                found[k] = j
+        if "qty" in found and ("code" in found or "name" in found):
+            hdr, cols = i, found
+            break
+    if hdr is None:
+        raise ValueError("ما لقيت أعمدة الفاتورة (الكود أو المادة + الكمية). استخدم «قالب فاتورة شراء» أو تأكد من العناوين")
+    if "code" in cols and "name" in cols:                           # عمود «الكود» اللي فيه أرقام تسلسلية 1,2,3 = ترقيم سطور مو كود
+        vals = [rows[r][cols["code"]] if cols["code"] < len(rows[r]) else None for r in range(hdr + 1, len(rows))]
+        vals = [str(v).strip().rstrip(".0") for v in vals if v is not None and str(v).strip() != ""]
+        if vals and all(v.isdigit() for v in vals) and [int(v) for v in vals][:5] == list(range(1, min(5, len(vals)) + 1)):
+            del cols["code"]
+    out = []
+    for i, row in enumerate(rows[hdr + 1:], start=hdr + 2):
+        get = lambda k: row[cols[k]] if k in cols and cols[k] < len(row) else None
+        code, name = _txt(get("code")), _txt(get("name"))
+        errs = []
+        qty = _num(get("qty"), "الكمية", errs)
+        if not code and not name:
+            continue
+        if qty is None and not errs:
+            if all(c is None or str(c).strip() == "" for c in (get("qty"), get("price"))):
+                continue                                            # سطر بدون كمية وسعر (عنوان فرعي أو سطر فاضي)
+        price = _num(get("price"), "السعر", errs)
+        if qty is not None and qty <= 0:
+            errs.append("الكمية لازم أكبر من صفر")
+        unit = _txt(get("unit")) or "قطعة"
+        if unit not in ("قطعة", "كارتون", "شد"):
+            unit = "قطعة"
+        it = by_code.get(code.casefold()) if code else None
+        if it is None and name:
+            it = by_name.get(name.casefold())
+        status = "error" if (errs and any("بدون كود" not in e for e in errs)) or qty is None else ("exists" if it else "new")
+        if status == "new" and not code:
+            errs.append("بدون كود: ينعمل كود تلقائي")
+        out.append(dict(row=i, code=(it["code"] if it else code), name=(it["name"] if it else name), qty=qty or 0, price=price or 0, unit=unit,
+                        status=status, message="؛ ".join(errs)))
+    counts = {s: sum(1 for r in out if r["status"] == s) for s in ("exists", "new", "error")}
+    counts["total"] = len(out)
+    return {"lines": out, "counts": counts}
+
+
 def build_template(categories):
     """ملف إكسل فاضي للتعبئة: ورقة «المواد» وورقة «تعليمات» (فيها مثال وشرح الأعمدة)."""
     from openpyxl import Workbook

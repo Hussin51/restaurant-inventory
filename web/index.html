@@ -185,6 +185,8 @@ tr.counted{background:var(--brand-soft)}
 @media(max-width:760px){table.lines,table.lines tbody{display:block;width:100%}table.lines thead{display:none}table.lines tr{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 0;border-bottom:1px solid var(--line,#e5e7eb);position:relative}table.lines td{display:block;padding:0;border:0;min-width:0}table.lines td:nth-child(1){display:none}table.lines td:nth-child(2){grid-column:1/-1}table.lines td:last-child{position:absolute;left:0;top:12px}table.lines td.tot{align-self:center;font-weight:700}table.lines input,table.lines select{width:100%}.lines td{padding:0}}
 @media(max-width:760px){body{flex-direction:column}.side{position:static;width:auto;height:auto;flex-direction:row;overflow-x:auto;padding:10px;gap:2px}.logo,.fileinfo,.sp{display:none}.nav{width:auto;white-space:nowrap;padding:9px 12px}main{padding:18px 16px}.types{grid-template-columns:repeat(3,1fr)}.types.t4{grid-template-columns:repeat(2,1fr)}.row,.row3{grid-template-columns:1fr}.dlg.wide>div[style*="grid-template-columns:210px"]{grid-template-columns:1fr!important}}
 /* لمسات تصميم */
+.impbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--brand-soft);color:var(--brand);border-radius:12px;padding:10px 16px;margin-bottom:16px;font-weight:600;font-size:14px}
+.impbar .ghost{background:var(--surface);color:var(--ink)}
 .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}
 .gcard{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;cursor:pointer;transition:transform .15s,box-shadow .15s}
 .gcard:hover{transform:translateY(-3px);box-shadow:0 10px 26px rgba(15,23,42,.14)}
@@ -317,6 +319,7 @@ tbody tr:hover td{background:var(--soft)}
     <div class="seg" data-seg="mv"></div>
     <div class="card pad">
       <div class="types t4 hide" id="itypes"></div>
+      <div class="impbar hide" id="i-imp"><span>فاتورة المورد وصلتك إكسل؟ استوردها بدل ما تكتبها سطر سطر.</span><span style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="ghost" id="i-imp-btn">استيراد فاتورة من إكسل</button><a class="ghost" href="/api/invoice_template" style="text-decoration:none">قالب فاتورة</a></span><input type="file" id="i-imp-file" accept=".xlsx,.xlsm" class="hide"></div>
       <div id="ihead"></div>
       <h2 style="margin-top:26px">المواد</h2>
       <div class="tw" style="overflow:visible"><table class="lines"><thead><tr><th style="width:44px">#</th><th>المادة</th><th style="width:110px">الكمية</th><th style="width:104px">الوحدة</th><th class="pc" id="th-price" style="width:140px">سعر الوحدة</th><th class="pc" id="th-total" style="width:130px">المجموع</th><th style="width:44px"></th></tr></thead><tbody id="ilines"></tbody></table></div>
@@ -521,6 +524,16 @@ tbody tr:hover td{background:var(--soft)}
   <div class="btns"><button class="primary" id="sm-save">حفظ</button><button class="ghost" id="sm-cancel">إلغاء</button></div>
 </div></div>
 
+<div class="modal" id="ipmodal"><div class="card dlg wide">
+  <h2>استيراد فاتورة شراء من إكسل</h2>
+  <div class="row3"><div><label style="margin-top:0">المورد</label><select id="ip-sup"></select></div><div><label style="margin-top:0">التاريخ</label><input id="ip-date" type="date"></div><div><label style="margin-top:0">عملة الفاتورة</label><select id="ip-cur"><option>دينار</option><option>دولار</option></select></div></div>
+  <label>ملاحظات</label><input id="ip-note" placeholder="اختياري (مثلاً رقم فاتورة المورد)">
+  <div class="hint" id="ip-sum" style="margin:12px 0 6px;font-size:14px"></div>
+  <div class="tw" style="max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:12px"><table><thead><tr><th>#</th><th>الكود</th><th>المادة</th><th class="num">الكمية</th><th class="num">السعر</th><th>الحالة</th></tr></thead><tbody id="ip-body"></tbody></table></div>
+  <label style="display:flex;gap:8px;align-items:center;font-weight:600;margin-top:14px"><input type="checkbox" id="ip-create" checked> أنشئ المواد الجديدة تلقائياً (بالاسم والسعر والصورة اللي بالملف)</label>
+  <label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="ip-upd" checked> حدّث سعر المواد بآخر سعر شراء</label>
+  <div class="btns"><button class="primary" id="ip-go">إنشاء الفاتورة</button><button class="ghost" id="ip-cancel">إلغاء</button></div>
+</div></div>
 <div class="lbx" id="lbx"><button class="lbn" id="lbx-next" title="التالي">›</button><button class="lbn" id="lbx-prev" title="السابق">‹</button><img id="lbx-img" alt=""><b id="lbx-t"></b><span id="lbx-s" class="lbs"></span><small>اضغط بأي مكان أو Esc للإغلاق · الأسهم للتنقل بين الصور</small></div>
 
 <!-- الإعدادات -->
@@ -736,6 +749,7 @@ function renderInvForm(){
   if($("#i-upd"))$("#i-upd").onchange=e=>INV.upd=e.target.checked;
   if($("#i-addsup"))$("#i-addsup").onclick=()=>openSup(null,n=>{INV.h.party=n;const sp=D.suppliers.find(x=>x.name===n);if(sp&&sp.currency)INV.h.cur=sp.currency;renderInvForm()});
   document.querySelectorAll(".pc").forEach(e=>e.classList.toggle("hide",t!=="شراء"));
+  $("#i-imp").classList.toggle("hide",t!=="شراء");
   renderLines();
 }
 const lineF=l=>factor(l.code&&byCode(l.code),l.unit||"قطعة")||1;
@@ -908,6 +922,32 @@ async function checkUpdate(){
       try{await api("/api/update_install",{});box.innerHTML="<span>جاري التحديث، البرنامج راح ينغلق ويفتح من جديد خلال ثواني...</span>"}
       catch(e){toast(e.message,1);b.disabled=false;b.textContent="حدّث الآن"}}
   }catch(e){}}
+
+/* استيراد فاتورة شراء من إكسل */
+let IPRAW="";
+function ipStatus(x){return x.status==="exists"?`<span class="pill in">موجودة</span>`:x.status==="new"?`<span class="pill move">جديدة${x.message?" · كود تلقائي":""}</span>`:`<span class="pill out" title="${esc(x.message)}">خطأ: ${esc(x.message)}</span>`}
+function ipRender(r){
+  const c=r.counts;$("#ip-sum").textContent=`${c.total} سطر: ${c.exists} موجودة، ${c.new} جديدة، ${c.error} فيها خطأ (تنتخطى)`;
+  $("#ip-body").innerHTML=r.lines.map((x,i)=>`<tr><td class="num">${i+1}</td><td><span class="code">${esc(x.code||"—")}</span></td><td>${esc(x.name)}</td><td class="num">${fmt(x.qty)}</td><td class="num">${fmt(x.price)}</td><td>${ipStatus(x)}</td></tr>`).join("");
+  $("#ip-create").checked=c.new>0;$("#ip-create").closest("label").classList.toggle("hide",c.new===0);
+}
+function ipSupCur(){const sp=D.suppliers.find(x=>x.name===$("#ip-sup").value);if(sp&&sp.currency)$("#ip-cur").value=sp.currency}
+$("#i-imp-btn").onclick=()=>$("#i-imp-file").click();
+$("#i-imp-file").onchange=e=>{const f=e.target.files[0];e.target.value="";if(!f)return;
+  const fr=new FileReader();fr.onload=async()=>{IPRAW=fr.result;
+    try{const r=await api("/api/inv_import_preview",{data:IPRAW});
+      $("#ip-sup").innerHTML=`<option value="">اختار المورد...</option>`+D.suppliers.map(x=>`<option ${x.name===(INV&&INV.h.party)?"selected":""}>${esc(x.name)}</option>`).join("");
+      $("#ip-date").value=(INV&&INV.h.date)||today();$("#ip-cur").value=(INV&&INV.h.cur)||"دينار";$("#ip-note").value=(INV&&INV.h.note)||"";ipSupCur();
+      ipRender(r);$("#ipmodal").classList.add("open")}
+    catch(er){toast(er.message,1)}};fr.readAsDataURL(f)};
+$("#ip-sup").onchange=ipSupCur;
+$("#ip-cancel").onclick=()=>$("#ipmodal").classList.remove("open");
+$("#ip-go").onclick=async()=>{if(!$("#ip-sup").value)return toast("اختار المورد",1);
+  const b=$("#ip-go");b.disabled=true;b.textContent="جاري إنشاء الفاتورة... (ممكن ياخذ ثواني)";
+  try{const r=await api("/api/inv_import_apply",{data:IPRAW,supplier:$("#ip-sup").value,currency:$("#ip-cur").value,date:$("#ip-date").value,note:$("#ip-note").value,create_missing:$("#ip-create").checked,update_prices:$("#ip-upd").checked});
+    $("#ipmodal").classList.remove("open");await load();toast(`تم إنشاء الفاتورة ${r.no} (${r.lines} سطر${r.created?` · ${r.created} مادة جديدة`:""}${r.skipped?` · ${r.skipped} انتخطى`:""})`);
+    invReset("شراء");renderInvForm();showInvoice(r.no)}
+  catch(e){toast(e.message,1)}finally{b.disabled=false;b.textContent="إنشاء الفاتورة"}};
 /* شراء الملابس */
 let CBL=[{}];
 const lastBuyPrice=(code,cur)=>{const ps=CL().purchases||[];for(let k=ps.length-1;k>=0;k--){if(ps[k].cur!==cur)continue;const l=ps[k].lines.find(x=>x.code===code);if(l)return l.price}return ""};
