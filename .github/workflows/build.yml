@@ -1,0 +1,101 @@
+name: Build inventory app
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "**"
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt pyinstaller
+      - name: Tests
+        run: python -m unittest discover -s tests -v
+      - name: Build exe
+        run: pyinstaller --onefile --windowed --name RestaurantInventory --icon installer\logo.ico --add-data "web;web" --add-data "assets;assets" --add-data "template.xlsx;." app.py
+      - name: Smoke test the exe (starts, creates data, saves)
+        shell: pwsh
+        run: |
+          $data = Join-Path $env:RUNNER_TEMP "invdata"
+          $env:INVENTORY_DATA = $data
+          $p = Start-Process -FilePath ".\dist\RestaurantInventory.exe" -ArgumentList "--no-browser","--port","8799" -PassThru
+          $up = $false
+          for ($i = 0; $i -lt 80; $i++) {
+            Start-Sleep -Milliseconds 500
+            try { $r = Invoke-RestMethod "http://127.0.0.1:8799/api/ping" -TimeoutSec 2; if ($r.app -eq "jard-almat3am") { $up = $true; break } } catch {}
+          }
+          if (-not $up) { throw "exe did not start" }
+          $page = Invoke-WebRequest "http://127.0.0.1:8799/" -UseBasicParsing
+          if ($page.Content -notmatch 'lang="ar"') { throw "web page missing from exe" }
+          $item = '{"code":"T-1","name":"smoke","cat":"","carton":12,"shad":0,"price":100,"opening":24,"min":5}'
+          Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8799/api/item" -Headers @{"X-Requested-With"="jard"} -Body ([Text.Encoding]::UTF8.GetBytes($item)) -ContentType "application/json" | Out-Null
+          $evil = $null
+          try { Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8799/api/item_delete" -Body '{"code":"T-1"}' -ContentType "text/plain" | Out-Null } catch { $evil = $_.Exception.Response.StatusCode.value__ }
+          if ($evil -ne 403) { throw "cross-site style POST was not blocked" }
+          $d = Invoke-RestMethod "http://127.0.0.1:8799/api/data"
+          if (@($d.items).Count -ne 1 -or $d.items[0].balance -ne 24) { throw "unexpected data after save" }
+          if (-not (Get-ChildItem $data -Filter *.xlsx)) { throw "xlsx not created" }
+          $logo = Invoke-WebRequest "http://127.0.0.1:8799/logo.png" -UseBasicParsing
+          if ($logo.StatusCode -ne 200 -or $logo.RawContentLength -lt 1000) { throw "logo missing from exe" }
+          $rep = Invoke-RestMethod "http://127.0.0.1:8799/api/report?kind=reorder"
+          if (-not $rep.title) { throw "report failed" }
+          $x = Invoke-WebRequest "http://127.0.0.1:8799/api/report_xlsx?kind=reorder" -UseBasicParsing
+          if ($x.RawContentLength -lt 3000) { throw "xlsx export failed" }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $xlsx = (Get-ChildItem $data -Filter *.xlsx | Select-Object -First 1).FullName
+          $zip = [IO.Compression.ZipFile]::OpenRead($xlsx)
+          $media = @($zip.Entries | Where-Object { $_.FullName -like "xl/media/*" }).Count
+          $zip.Dispose()
+          if ($media -lt 1) { throw "logo lost from the Excel file after saving (Pillow missing from exe?)" }
+          Stop-Process -Id $p.Id -Force
+      - name: Build installer
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress; }
+          & $iscc installer\setup.iss
+      - name: Smoke test the installer (silent install)
+        if: hashFiles('installer/Output/RestaurantInventory-Setup.exe') != ''
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP "inst"
+          $proc = Start-Process ".\installer\Output\RestaurantInventory-Setup.exe" -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/DIR=$dir" -Wait -PassThru
+          if ($proc.ExitCode -ne 0) { throw "installer failed" }
+          if (-not (Test-Path "$dir\RestaurantInventory.exe")) { throw "exe not installed" }
+          $proc2 = Start-Process ".\installer\Output\RestaurantInventory-Setup.exe" -ArgumentList "/SILENT","/CLOSEAPPLICATIONS","/NORESTART","/SUPPRESSMSGBOXES","/DIR=$dir" -Wait -PassThru
+          if ($proc2.ExitCode -ne 0) { throw "silent upgrade install failed" }
+          Get-Process RestaurantInventory -ErrorAction SilentlyContinue | Stop-Process -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RestaurantInventory
+          path: |
+            dist/RestaurantInventory.exe
+            installer/Output/RestaurantInventory-Setup.exe
+      - name: Prepare update manifest (version.json)
+        shell: pwsh
+        run: |
+          $ver = (Select-String -Path app.py -Pattern '^VERSION = "([^"]+)"').Matches[0].Groups[1].Value
+          $sha = (Get-FileHash installer\Output\RestaurantInventory-Setup.exe -Algorithm SHA256).Hash.ToLower()
+          $json = @{ version = $ver; sha256 = $sha; notes = "" } | ConvertTo-Json
+          [IO.File]::WriteAllText("$PWD\installer\Output\version.json", $json, (New-Object Text.UTF8Encoding($false)))
+          Get-Content installer\Output\version.json
+      - name: Publish release (download link + auto-update source)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: inventory-latest
+          name: جرد المطعم - آخر إصدار
+          target_commitish: ${{ github.sha }}
+          body: "نزّل RestaurantInventory-Setup.exe وثبّته. بياناتك تنحفظ بمجلد المستندات\\جرد المطعم ولا تنمسح بالتحديث. بعد التثبيت، التحديثات تجي من داخل البرنامج."
+          make_latest: true
+          fail_on_unmatched_files: true
+          files: |
+            installer/Output/RestaurantInventory-Setup.exe
+            installer/Output/version.json
+            dist/RestaurantInventory.exe
