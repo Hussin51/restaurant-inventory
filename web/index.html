@@ -812,8 +812,8 @@ function showInvoice(no,print){
    v.type==="إرجاع"?`<div><span>القسم: </span><b>${esc(v.frm)}</b></div><div><span>إلى: </span><b>${esc(v.to)}</b></div>`:
    v.type==="إعارة"?`<div><span>من: </span><b>${esc(v.frm)}</b></div><div><span>القسم المستعير: </span><b>${esc(v.to)}</b></div><div><span>تاريخ الاسترجاع: </span><b>${esc(v.due||"—")}</b></div>`:
    `<div><span>من: </span><b>${esc(v.frm)}</b></div><div><span>إلى قسم: </span><b>${esc(v.to)}</b></div>`}</div>
-   <table><thead><tr><th style="width:40px">#</th><th>الكود</th><th>المادة</th><th class="num">الكمية</th>${buy?`<th class="num">سعر الوحدة (${esc(v.cur)})</th><th class="num">المجموع (${esc(v.cur)})</th>`:""}</tr></thead><tbody>
-   ${v.lines.map((l,i)=>`<tr><td class="num">${i+1}</td><td><span class="code">${esc(l.code)}</span></td><td>${esc(l.name)}</td><td class="num">${fmt(l.count)} ${esc(l.unit)}${l.unit!=="قطعة"?`<div style="color:#666;font-size:12px">(${fmt(l.qty)} قطعة)</div>`:""}</td>${buy?`<td class="num">${fmt(l.uprice)}</td><td class="num">${fmt(l.total)}</td>`:""}</tr>`).join("")}</tbody></table>
+   <table><thead><tr><th style="width:40px">#</th>${v.lines.some(l=>pimgc(l.code))?`<th style="width:60px">صورة</th>`:""}<th>الكود</th><th>المادة</th><th class="num">الكمية</th>${buy?`<th class="num">سعر الوحدة (${esc(v.cur)})</th><th class="num">المجموع (${esc(v.cur)})</th>`:""}</tr></thead><tbody>
+   ${v.lines.map((l,i)=>`<tr><td class="num">${i+1}</td>${v.lines.some(x=>pimgc(x.code))?`<td>${pimgc(l.code)}</td>`:""}<td><span class="code">${esc(l.code)}</span></td><td>${esc(l.name)}</td><td class="num">${fmt(l.count)} ${esc(l.unit)}${l.unit!=="قطعة"?`<div style="color:#666;font-size:12px">(${fmt(l.qty)} قطعة)</div>`:""}</td>${buy?`<td class="num">${fmt(l.uprice)}</td><td class="num">${fmt(l.total)}</td>`:""}</tr>`).join("")}</tbody></table>
    <div class="tot"><span>مجموع القطع: ${fmt(q)}</span>${buy?`<span>الإجمالي: ${fmt(v.total)} ${esc(v.cur)}${v.cur==="دولار"?` <span style="font-size:13px;font-weight:400;color:#555">(≈ ${fmt(v.total_iqd)} دينار بسعر صرف ${fmt(v.rate)})</span>`:""}</span>`:""}</div>
    ${v.note?`<p style="margin-top:16px"><span style="color:#555">ملاحظات: </span>${esc(v.note)}</p>`:""}
    <div class="sig"><div>${v.type==="شراء"?"المستلم (المخزن)":v.type==="إرجاع"?"المستلم (المخزن)":"المسلِّم (المخزن)"}</div><div>${v.type==="شراء"?"المورد":v.type==="إرجاع"?"المسلِّم (القسم)":"المستلم (القسم)"}</div></div></div>`;
@@ -1031,11 +1031,14 @@ function reportsUI(){
   $("#r-from").value=RD.from;$("#r-to").value=RD.to;$("#r-fac").value=RD.factor;
 }
 const repQS=()=>new URLSearchParams({kind:RK,from:RD.from,to:RD.to,dept:RD.dept,supplier:RD.supplier,factor:RD.factor}).toString();
-const cell=v=>typeof v==="number"?fmt(v):esc(v);
+const cell=v=>v&&v.__html!==undefined?v.__html:typeof v==="number"?fmt(v):esc(v);
+function withImgs(t){const k=t.columns.indexOf("الكود");if(k<0||!t.rows.length)return t;
+  if(!t.rows.some(r=>pimgc(r[k])))return t;
+  return {...t,columns:["صورة",...t.columns],rows:t.rows.map(r=>[{__html:pimgc(r[k])},...r]),numeric:(t.numeric||[]).map(n=>n+1)}}
 function repHTML(r){
   return `<div class="rhead"><img src="/logo.png" alt=""><div><h3>${esc(r.restaurant||D.settings.name)}</h3><div style="color:#444;font-size:17px;font-weight:700;margin-top:2px">${esc(r.title)}</div><div style="color:#666">${esc(r.subtitle)}</div></div></div>
   <div class="rcards">${r.cards.map(c=>`<div class="rcard ${c.tone||""}"><small>${esc(c.label)}</small><b>${fmt(c.value)}</b>${c.sub?`<small style="color:#B45309">${esc(c.sub)}</small>`:""}</div>`).join("")}</div>
-  ${r.tables.map(t=>(!t.rows.length&&t.columns.length===1)?`<div class="empty2" style="border:1px dashed #ccc;border-radius:10px;margin-top:14px"><b>${esc(t.title)}</b></div>`:`<h4>${esc(t.title)}</h4><table><thead><tr>${t.columns.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${t.rows.length?t.rows.map(row=>`<tr>${row.map((v,j)=>`<td class="${typeof v==="number"?"num":""}">${cell(v)}</td>`).join("")}</tr>`).join(""):`<tr><td colspan="${t.columns.length}" style="text-align:center;color:#777">لا يوجد</td></tr>`}</tbody></table>`).join("")}
+  ${r.tables.map(t0=>{const t=withImgs(t0);return (!t.rows.length&&t.columns.length===1)?`<div class="empty2" style="border:1px dashed #ccc;border-radius:10px;margin-top:14px"><b>${esc(t.title)}</b></div>`:`<h4>${esc(t.title)}</h4><table><thead><tr>${t.columns.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${t.rows.length?t.rows.map(row=>`<tr>${row.map((v,j)=>`<td class="${typeof v==="number"?"num":""}">${cell(v)}</td>`).join("")}</tr>`).join(""):`<tr><td colspan="${t.columns.length}" style="text-align:center;color:#777">لا يوجد</td></tr>`}</tbody></table>`}).join("")}
   ${r.note?`<p style="margin-top:18px;color:#666;font-size:12.5px">${esc(r.note)}</p>`:""}
   <p style="margin-top:6px;color:#999;font-size:11.5px">طُبع بتاريخ ${today()}</p>`}
 let REPSEQ=0;
@@ -1048,6 +1051,8 @@ async function runReport(){
 $("#r-dept").onchange=e=>{RD.dept=e.target.value;runReport()};
 $("#r-sup").onchange=e=>{RD.supplier=e.target.value;runReport()};
 $("#r-fac").onchange=e=>{RD.factor=Math.max(1,+e.target.value||2);runReport()};
+const pimgc=(code,sz=46)=>{const it=code&&byCode(code);return it&&it.image?`<img src="/img/${encodeURIComponent(it.image)}?t=${IMGV}" style="width:${sz}px;height:${sz}px;object-fit:contain;display:block;margin:auto" alt="">`:""};
+const pimgIn=code=>{const h=pimgc(code,30);return h?h.replace("display:block;margin:auto","display:inline-block;vertical-align:middle;margin-inline-end:6px"):""};
 const pimg=i=>i.image?`<img src="/img/${encodeURIComponent(i.image)}?t=${IMGV}" style="width:46px;height:46px;object-fit:contain;display:block;margin:auto" alt="">`:"";
 function printDoc(title,sub,columns,rows,note){
   const h=`<div class="rhead"><img src="/logo.png" alt=""><div><h3>${esc(D.settings.name)}</h3><div style="color:#444;font-size:17px;font-weight:700;margin-top:2px">${esc(title)}</div><div style="color:#666">${esc(sub||"")}</div></div></div>
@@ -1063,7 +1068,7 @@ $("#it-print").onclick=()=>{const q=$("#isearch").value.trim().toLowerCase();
     rows.map(i=>[pimg(i),esc(i.code),esc(i.name),esc(i.usage||""),`${fmt(i.balance)}${packs(i,i.balance)?` <small>(${esc(packs(i,i.balance))})</small>`:""}`,i.held?fmt(i.held):"",fmt(i.min),esc(i.status)]),"المتبقي بالمخزن = الي بالمخزن وجاهز للصرف. «عند الأقسام» الي استلمته الأقسام ولسا موجود عندها.")};
 $("#ln-print").onclick=()=>{const L=[...(D.loans||[])].sort((a,b)=>String(a.due).localeCompare(String(b.due)));
   printDoc("الإعارات المفتوحة",`${L.length} إعارة`,["الإعارة","القسم","تاريخ الإعارة","موعد الاسترجاع","الحالة","المواد المتبقية"],
-    L.map(l=>[esc(l.no),esc(l.dept),esc(l.date),esc(l.due||""),l.status==="متأخرة"?`متأخرة ${Math.abs(l.days)} يوم`:l.status==="اليوم"?"موعدها اليوم":`بعد ${l.days} يوم`,l.lines.map(x=>`${esc(x.name)} × ${fmt(x.remaining)}`).join("<br>")]))};
+    L.map(l=>[esc(l.no),esc(l.dept),esc(l.date),esc(l.due||""),l.status==="متأخرة"?`متأخرة ${Math.abs(l.days)} يوم`:l.status==="اليوم"?"موعدها اليوم":`بعد ${l.days} يوم`,l.lines.map(x=>`${pimgIn(x.code)}${esc(x.name)} × ${fmt(x.remaining)}`).join("<br>")]))};
 $("#cprint").onclick=()=>{const q=$("#csearch").value.trim().toLowerCase();
   const rows=D.items.filter(i=>(ccat==="الكل"||i.cat===ccat)&&stOk(i)&&hit(i,q));
   const box='<div style="min-height:30px;border-bottom:1px solid #999"></div>';
