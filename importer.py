@@ -280,6 +280,104 @@ def parse_invoice(data, by_code=None, by_name=None):
     return {"lines": out, "counts": counts}
 
 
+# ---------------------------------------------------------------- استيراد التكسير (نهاية الشهر)
+BK_COLS = {
+    "dept": ["القسم", "قسم", "department", "dept"],
+    "code": INV_COLS["code"],
+    "name": INV_COLS["name"],
+    "qty": ["الكمية", "الكسر", "كمية الكسر", "المكسور", "التكسير", "العدد", "qty", "quantity", "broken"],
+    "date": ["التاريخ", "date"],
+    "note": ["ملاحظة", "ملاحظات", "السبب", "note", "reason"],
+}
+_BK_ALIAS = {}
+for _k, _al in BK_COLS.items():
+    for _a in _al:
+        _BK_ALIAS.setdefault(_norm(_a), _k)
+
+
+def breakage_template(depts):
+    """قالب التكسير: ورقة وحدة بعمود القسم (أو ورقة لكل قسم باسمه)."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "التكسير"
+    ws.sheet_view.rightToLeft = True
+    hs = ["القسم", "الكود", "المادة", "الكمية", "ملاحظة"]
+    for j, h in enumerate(hs, 1):
+        c = ws.cell(1, j, h)
+        c.font, c.fill, c.alignment = Font(bold=True, color="FFFFFF"), PatternFill("solid", fgColor="1F4E78"), Alignment(horizontal="center")
+        ws.column_dimensions[c.column_letter].width = [16, 16, 34, 12, 28][j - 1]
+    for j, v in enumerate([(depts or ["المطبخ"])[0], "PL-001", "صحن تقديم", 3, "كسر بالغسيل"], 1):
+        ws.cell(2, j, v).alignment = Alignment(horizontal="center")
+    ws["G1"] = "اكتب القسم بكل سطر، أو سوّي ورقة لكل قسم باسم القسم. الكود أو اسم المادة (واحد منهم يكفي). الكمية بالقطعة."
+    out = io.BytesIO()
+    wb.save(out)
+    return out.getvalue()
+
+
+def parse_breakage(data, by_code=None, by_name=None, depts=None):
+    """يقرأ ملف التكسير (أي ترتيب أعمدة؛ القسم من عمود «القسم» أو من اسم الورقة). يرجّع {lines, counts}. ما يغيّر شي."""
+    from openpyxl import load_workbook
+    by_code, by_name = by_code or {}, by_name or {}
+    dmap = {_norm(d): d for d in (depts or [])}
+    try:
+        wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    except Exception:
+        raise ValueError("هذا مو ملف إكسل (.xlsx) صحيح")
+    out, found_any = [], False
+    for ws in wb.worksheets:
+        rows = list(ws.iter_rows(values_only=True))
+        hdr, cols = None, {}
+        for i, row in enumerate(rows[:40]):
+            f = {}
+            for j, v in enumerate(row):
+                k = _BK_ALIAS.get(_norm(v))
+                if k and k not in f:
+                    f[k] = j
+            if "qty" in f and ("code" in f or "name" in f):
+                hdr, cols = i, f
+                break
+        if hdr is None:
+            continue
+        found_any = True
+        sheet_dept = dmap.get(_norm(ws.title), "")
+        for i, row in enumerate(rows[hdr + 1:], start=hdr + 2):
+            get = lambda k: row[cols[k]] if k in cols and cols[k] < len(row) else None
+            code, name = _txt(get("code")), _txt(get("name"))
+            if not code and not name:
+                continue
+            errs = []
+            qty = _num(get("qty"), "الكمية", errs)
+            if qty is None and not errs:
+                continue                                                    # سطر بدون كمية = ما كسر
+            if qty == 0 and not errs:
+                continue                                                    # صفر = ما كسر شي
+            dept_raw = _txt(get("dept"))
+            dept = dmap.get(_norm(dept_raw), "") if dept_raw else sheet_dept
+            if not dept:
+                errs.append("القسم مو معروف" + (f": «{dept_raw}»" if dept_raw else " (اكتب عمود القسم أو سمّي الورقة باسم القسم)"))
+            it = by_code.get(code.casefold()) if code else None
+            if it is None and name:
+                it = by_name.get(name.casefold())
+            if it is None:
+                errs.append("المادة مو موجودة بالبرنامج")
+            date_v = get("date")
+            ds = ""
+            if hasattr(date_v, "strftime"):
+                ds = date_v.strftime("%Y-%m-%d")
+            elif _txt(date_v):
+                ds = _txt(date_v)[:10]
+            out.append(dict(sheet=ws.title, row=i, dept=dept, code=(it["code"] if it else code), name=(it["name"] if it else name), qty=qty or 0,
+                            date=ds, note=_txt(get("note")), status="error" if errs else "ok", message="؛ ".join(errs)))
+    if not found_any:
+        raise ValueError("ما لقيت أعمدة التكسير (الكود أو المادة + الكمية). استخدم «قالب التكسير»")
+    counts = {s: sum(1 for r in out if r["status"] == s) for s in ("ok", "error")}
+    counts["total"] = len(out)
+    counts["qty"] = sum(r["qty"] for r in out if r["status"] == "ok")
+    return {"lines": out, "counts": counts}
+
+
 def build_template(categories):
     """ملف إكسل فاضي للتعبئة: ورقة «المواد» وورقة «تعليمات» (فيها مثال وشرح الأعمدة)."""
     from openpyxl import Workbook

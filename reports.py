@@ -174,6 +174,56 @@ def department(data, dept, a="", b=""):
     }
 
 
+# ---------------------------------------------------------------- تقرير التكسير (نهاية الشهر)
+def breakage(data, a="", b="", dept=""):
+    items = _items(data)
+    wh = data.get("warehouse", "المخزن")
+    by = {}
+    for m in data["moves"]:
+        if m["type"] != "كسر وضياع" or not _in(m["date"], a, b):
+            continue
+        d = m["frm"] or wh
+        if dept and d != dept:
+            continue
+        by.setdefault(d, {})
+        by[d][m["item"]] = by[d].get(m["item"], 0) + m["qty"]
+    code_of = {i["name"]: i["code"] for i in data["items"]}
+
+    def rows_for(qtys):
+        out = []
+        for n, q in sorted(qtys.items(), key=lambda kv: -_val(items, kv[0], kv[1])):
+            it = items.get(n, {})
+            out.append([code_of.get(n, ""), n, it.get("cat", ""), q, it.get("price_iqd") or 0, _val(items, n, q)])
+        out.append(["", "الإجمالي", "", sum(r[3] for r in out), "", sum(r[5] for r in out)])
+        return out
+    cols = ["الكود", "المادة", "النوع", "الكمية", "السعر (دينار)", "الإجمالي (دينار)"]
+    tables = []
+    allq = {}
+    for d in sorted(by):
+        for n, q in by[d].items():
+            allq[n] = allq.get(n, 0) + q
+    if not dept and len(by) > 1:
+        summ = [[d, len(by[d]), sum(by[d].values()), sum(_val(items, n, q) for n, q in by[d].items())] for d in sorted(by)]
+        summ.sort(key=lambda r: -r[3])
+        summ.append(["الإجمالي", len(allq), sum(r[2] for r in summ), sum(r[3] for r in summ)])
+        tables.append(_table("ملخص التكسير حسب القسم", ["القسم", "عدد المواد", "القطع", "الإجمالي (دينار)"], summ, (1, 2, 3)))
+    for d in sorted(by, key=lambda k: -sum(_val(items, n, q) for n, q in by[k].items())):
+        tables.append(_table(f"تكسير قسم {d}", cols, rows_for(by[d]), (3, 4, 5)))
+    if not dept and len(by) > 1:
+        tables.append(_table("مجموع التكسير حسب المادة (كل الأقسام)", cols, rows_for(allq), (3, 4, 5)))
+    if not by:
+        tables.append(_table("ما كو تكسير مسجل بهذي الفترة", ["—"], [], ()))
+    total = sum(_val(items, n, q) for n, q in allq.items())
+    return {
+        "kind": "breakage", "title": "تقرير التكسير" + (f": {dept}" if dept else ""), "subtitle": _period(a, b),
+        "cards": [{"label": "القطع المكسورة", "value": sum(allq.values()), "tone": "bad" if allq else ""},
+                  {"label": "قيمة التكسير (دينار)", "value": total, "money": True, "tone": "bad" if total else ""},
+                  {"label": "عدد المواد", "value": len(allq)}, {"label": "عدد الأقسام", "value": len(by)}],
+        "tables": tables,
+        "note": f"السعر = سعر القطعة الحالي للمادة بالدينار (مواد الدولار بسعر الصرف الحالي {data.get('settings', {}).get('rate', 0):,.0f}). التكسير المسجل كـ«كسر وضياع» على القسم.",
+    }
+
+
 # ---------------------------------------------------------------- كشف حساب مورد
 def supplier_statement(data, name, a="", b=""):
     if not name:
@@ -328,6 +378,8 @@ def build(kind, data, a="", b="", dept="", supplier="", factor=2.0, employee_nam
         return department(data, dept, a, b)
     if kind == "supplier":
         return supplier_statement(data, supplier, a, b)
+    if kind == "breakage":
+        return breakage(data, a, b, dept)
     if kind == "reorder":
         return reorder(data, factor)
     if kind == "location":

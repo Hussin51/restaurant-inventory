@@ -478,6 +478,25 @@ class Store:
         self._write_move(wb, d, item, typ, qty, frm, to, note, inv)
         self._save(wb)
 
+    def add_movements(self, moves):
+        """يسجل عدة حركات دفعة وحدة (حفظ واحد). كل حركة dict: d, item (الاسم), typ, qty, frm, to, note, unit."""
+        wb = self._open()
+        n = 0
+        for m in moves:
+            if m["typ"] not in TYPES:
+                raise ValueError("نوع الحركة غير صحيح")
+            qty = _pos(m["qty"], "الكمية", strict=True)
+            row = self._item_row(wb, name=m["item"])
+            if row is None:
+                raise ValueError(f"الصنف غير موجود: {m['item']}")
+            qty = qty * self._factor(wb, row, m.get("unit", "قطعة"))
+            qty = int(qty) if qty == int(qty) else qty
+            self._write_move(wb, m["d"], m["item"], m["typ"], qty, m.get("frm", ""), m.get("to", ""), m.get("note", ""), m.get("inv", ""))
+            n += 1
+        if n:
+            self._save(wb)
+        return n
+
     def _write_move(self, wb, d, item, typ, qty, frm, to, note, inv):
         ws = wb[LOG_SHEET]
         r = _first_empty(ws, 2, L0)
