@@ -542,7 +542,7 @@ tbody tr:hover td{background:var(--soft)}
   <div class="row3"><div><label style="margin-top:0">تاريخ التسجيل</label><input id="bk-date" type="date"></div><div style="grid-column:span 2"><label style="margin-top:0">اسم التكسير (يطلع بالملاحظات)</label><input id="bk-label" placeholder="مثلاً: تكسير شهر 11/2026"></div></div>
   <div class="hint" id="bk-sum" style="margin:12px 0 6px;font-size:14px"></div>
   <div class="tw" style="max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:12px"><table><thead><tr><th>القسم</th><th>الكود</th><th>المادة</th><th class="num">الكمية</th><th>الحالة</th></tr></thead><tbody id="bk-body"></tbody></table></div>
-  <div class="hint">كل سطر يتسجل كحركة «كسر وضياع» على القسم (ينقص من الموجود عنده). تنحفظ نسخة احتياطية قبل الاستيراد. السطور اللي فيها خطأ تنتخطى.</div>
+  <div class="hint">كل سطر يتسجل كحركة «كسر وضياع» (على المخزن، أو على القسم إذا كاتب قسم) وينقص من الموجود. تنحفظ نسخة احتياطية قبل الاستيراد. السطور اللي فيها خطأ تنتخطى.</div>
   <div class="btns"><button class="primary" id="bk-go">تسجيل التكسير</button><button class="ghost" id="bk-cancel">إلغاء</button></div>
 </div></div>
 <div class="lbx" id="lbx"><button class="lbn" id="lbx-next" title="التالي">›</button><button class="lbn" id="lbx-prev" title="السابق">‹</button><img id="lbx-img" alt=""><b id="lbx-t"></b><span id="lbx-s" class="lbs"></span><small>اضغط بأي مكان أو Esc للإغلاق · الأسهم للتنقل بين الصور</small></div>
@@ -971,7 +971,7 @@ $("#bk-file").onchange=e=>{const f=e.target.files[0];e.target.value="";if(!f)ret
   const fr=new FileReader();fr.onload=async()=>{BKRAW=fr.result;
     try{const r=await api("/api/bk_preview",{data:BKRAW});const c=r.counts;
       $("#bk-sum").textContent=`${c.total} سطر: ${c.ok} صالح (${fmt(c.qty)} قطعة)، ${c.error} فيه خطأ (ينتخطى)`;
-      $("#bk-body").innerHTML=r.lines.map(x=>`<tr><td>${esc(x.dept||"—")}</td><td><span class="code">${esc(x.code||"—")}</span></td><td>${esc(x.name)}</td><td class="num">${fmt(x.qty)}</td><td>${bkStatus(x)}</td></tr>`).join("");
+      $("#bk-body").innerHTML=r.lines.map(x=>`<tr><td>${esc(x.dept||D.warehouse)}</td><td><span class="code">${esc(x.code||"—")}</span></td><td>${esc(x.name)}</td><td class="num">${fmt(x.qty)}</td><td>${bkStatus(x)}</td></tr>`).join("");
       $("#bk-date").value=today();$("#bk-label").value="تكسير نهاية الشهر "+today().slice(0,7);$("#bk-go").disabled=!c.ok;$("#bkmodal").classList.add("open")}
     catch(er){toast(er.message,1)}};fr.readAsDataURL(f)};
 $("#bk-cancel").onclick=()=>$("#bkmodal").classList.remove("open");
@@ -1081,7 +1081,7 @@ $("#ln-go").onclick=()=>go("loans");
 
 /* ---------- التقارير ---------- */
 let RK="reorder",RP="month",RD={dept:"",supplier:"",from:"",to:"",factor:2};
-const RKINDS=[["reorder","قائمة طلب شراء"],["movement","المشتريات والإخراج"],["dept","تقرير قسم"],["supplier","كشف حساب مورد"],["location","توزيع الأقسام"],["breakage","تقرير التكسير"]];
+const RKINDS=[["reorder","قائمة طلب شراء"],["movement","المشتريات والإخراج"],["dept","تقرير قسم"],["supplier","كشف حساب مورد"],["location","توزيع الأقسام"],["breakage","تقرير التكسير الشامل"]];
 const RPER=[["today","اليوم"],["week","آخر 7 أيام"],["month","هذا الشهر"],["lastmonth","الشهر الماضي"],["all","كل الفترة"]];
 const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 function periodRange(k){const n=new Date(),t=ymd(n);

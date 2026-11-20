@@ -11,7 +11,7 @@ import clothes
 import updater
 from urllib.parse import urlparse, parse_qs, quote, unquote
 
-VERSION = "1.9.7"
+VERSION = "1.9.8"
 BASE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 LOCK = threading.Lock()
 PENDING = False
@@ -381,10 +381,13 @@ class H(BaseHTTPRequestHandler):
                             continue
                         k = (x["dept"], x["name"])
                         used[k] = used.get(k, 0) + x["qty"]
-                        have = held.get(x["name"], {}).get(x["dept"], 0)
+                        if x["dept"]:
+                            have, where = held.get(x["name"], {}).get(x["dept"], 0), "عند القسم"
+                        else:
+                            have, where = next((i["balance"] for i in items if i["name"] == x["name"]), 0), "بالمخزن"
                         x["held"] = have
                         if used[k] > have:
-                            x["message"] = f"تنبيه: أكبر من الموجود عند القسم ({have:g})، يصير الرصيد عنده بالسالب"
+                            x["message"] = f"تنبيه: أكبر من الموجود {where} ({have:g})، يصير الرصيد بالسالب"
                     if p == "/api/bk_preview":
                         res.update(parsed)
                     else:

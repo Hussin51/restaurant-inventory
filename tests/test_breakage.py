@@ -48,6 +48,19 @@ class BreakageTests(unittest.TestCase):
         self.assertEqual(r["counts"]["error"], 2)                          # قسم مجهول + مادة مجهولة. السطر بكمية صفر ينتخطى بصمت
         self.assertEqual(r["counts"]["qty"], 5)
 
+    def test_overall_breakage_without_departments_hits_the_warehouse(self):
+        raw = book([("التكسير", [["الكود", "المادة", "الكمية", "ملاحظة"], ["PL-001", None, 4, "كسر"], [None, "كأس", 1, None]])])
+        r = importer.parse_breakage(raw, self.by_code, self.by_name, self.depts)
+        self.assertEqual([(x["dept"], x["code"], x["status"]) for x in r["lines"]], [("", "PL-001", "ok"), ("", "CP-001", "ok")])
+        before = {i["name"]: i["balance"] for i in self.s.items()}
+        self.s.add_movements([dict(d=date(2026, 11, 30), item=x["name"], typ="كسر وضياع", qty=x["qty"], frm=x["dept"], note="تكسير شهر 11") for x in r["lines"]])
+        after = {i["name"]: i["balance"] for i in self.s.items()}
+        self.assertEqual(before["صحن"] - after["صحن"], 4)
+        rep = reports.build("breakage", self.s.all(), "2026-11-01", "2026-11-30")
+        self.assertEqual([t["title"] for t in rep["tables"]], ["تفاصيل التكسير"])
+        self.assertEqual(rep["cards"][0]["value"], 5)
+        self.assertEqual(rep["title"], "تقرير التكسير الشامل")
+
     def test_rejects_file_without_breakage_columns(self):
         with self.assertRaises(ValueError):
             importer.parse_breakage(book([("ورقة", [["أ", "ب"], [1, 2]])]), self.by_code, self.by_name, self.depts)
