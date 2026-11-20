@@ -207,21 +207,20 @@ def breakage(data, a="", b="", dept=""):
         summ.sort(key=lambda r: -r[3])
         summ.append(["الإجمالي", len(allq), sum(r[2] for r in summ), sum(r[3] for r in summ)])
         tables.append(_table("ملخص التكسير حسب القسم", ["القسم", "عدد المواد", "القطع", "الإجمالي (دينار)"], summ, (1, 2, 3)))
-    only_wh = list(by) == [wh]
     for d in sorted(by, key=lambda k: -sum(_val(items, n, q) for n, q in by[k].items())):
-        tables.append(_table("تفاصيل التكسير" if only_wh else (f"تكسير {d}" if d == wh else f"تكسير قسم {d}"), cols, rows_for(by[d]), (3, 4, 5)))
+        tables.append(_table(f"تكسير قسم {d}", cols, rows_for(by[d]), (3, 4, 5)))
     if not dept and len(by) > 1:
         tables.append(_table("مجموع التكسير حسب المادة (كل الأقسام)", cols, rows_for(allq), (3, 4, 5)))
     if not by:
         tables.append(_table("ما كو تكسير مسجل بهذي الفترة", ["—"], [], ()))
     total = sum(_val(items, n, q) for n, q in allq.items())
     return {
-        "kind": "breakage", "title": "تقرير التكسير الشامل" + (f": {dept}" if dept else ""), "subtitle": _period(a, b),
+        "kind": "breakage", "title": "تقرير التكسير" + (f": {dept}" if dept else ""), "subtitle": _period(a, b),
         "cards": [{"label": "القطع المكسورة", "value": sum(allq.values()), "tone": "bad" if allq else ""},
                   {"label": "قيمة التكسير (دينار)", "value": total, "money": True, "tone": "bad" if total else ""},
-                  {"label": "عدد المواد", "value": len(allq)}] + ([] if only_wh or not by else [{"label": "عدد الأقسام", "value": len(by)}]),
+                  {"label": "عدد المواد", "value": len(allq)}, {"label": "عدد الأقسام", "value": len(by)}],
         "tables": tables,
-        "note": f"السعر = سعر القطعة الحالي للمادة بالدينار (مواد الدولار بسعر الصرف الحالي {data.get('settings', {}).get('rate', 0):,.0f}). التكسير المسجل كحركات «كسر وضياع» (على المخزن أو على القسم إذا انكتب).",
+        "note": f"السعر = سعر القطعة الحالي للمادة بالدينار (مواد الدولار بسعر الصرف الحالي {data.get('settings', {}).get('rate', 0):,.0f}). التكسير المسجل كـ«كسر وضياع» على القسم.",
     }
 
 

@@ -296,28 +296,28 @@ for _k, _al in BK_COLS.items():
 
 
 def breakage_template(depts):
-    """قالب التكسير الشامل: كود/مادة/كمية/ملاحظة، والقسم اختياري."""
+    """قالب التكسير: ورقة وحدة بعمود القسم (أو ورقة لكل قسم باسمه)."""
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
     wb = Workbook()
     ws = wb.active
     ws.title = "التكسير"
     ws.sheet_view.rightToLeft = True
-    hs = ["الكود", "المادة", "الكمية", "ملاحظة", "القسم (اختياري)"]
+    hs = ["القسم", "الكود", "المادة", "الكمية", "ملاحظة"]
     for j, h in enumerate(hs, 1):
         c = ws.cell(1, j, h)
         c.font, c.fill, c.alignment = Font(bold=True, color="FFFFFF"), PatternFill("solid", fgColor="1F4E78"), Alignment(horizontal="center")
-        ws.column_dimensions[c.column_letter].width = [16, 34, 12, 28, 18][j - 1]
-    for j, v in enumerate(["PL-001", "صحن تقديم", 3, "كسر بالغسيل", None], 1):
+        ws.column_dimensions[c.column_letter].width = [16, 16, 34, 12, 28][j - 1]
+    for j, v in enumerate([(depts or ["المطبخ"])[0], "PL-001", "صحن تقديم", 3, "كسر بالغسيل"], 1):
         ws.cell(2, j, v).alignment = Alignment(horizontal="center")
-    ws["G1"] = "تقرير شامل: اكتب كل المواد المكسورة بالشهر (الكود أو اسم المادة، والكمية بالقطعة). القسم اختياري: إذا تريد تسجّل الكسر على قسم معين اكتب اسمه."
+    ws["G1"] = "اكتب القسم بكل سطر، أو سوّي ورقة لكل قسم باسم القسم. الكود أو اسم المادة (واحد منهم يكفي). الكمية بالقطعة."
     out = io.BytesIO()
     wb.save(out)
     return out.getvalue()
 
 
 def parse_breakage(data, by_code=None, by_name=None, depts=None):
-    """يقرأ ملف التكسير (أي ترتيب أعمدة؛ القسم اختياري: من عمود «القسم» أو اسم الورقة، وبدونه التكسير يتسجل على المخزن). يرجّع {lines, counts}. ما يغيّر شي."""
+    """يقرأ ملف التكسير (أي ترتيب أعمدة؛ القسم من عمود «القسم» أو من اسم الورقة). يرجّع {lines, counts}. ما يغيّر شي."""
     from openpyxl import load_workbook
     by_code, by_name = by_code or {}, by_name or {}
     dmap = {_norm(d): d for d in (depts or [])}
@@ -354,9 +354,9 @@ def parse_breakage(data, by_code=None, by_name=None, depts=None):
             if qty == 0 and not errs:
                 continue                                                    # صفر = ما كسر شي
             dept_raw = _txt(get("dept"))
-            dept = dmap.get(_norm(dept_raw), "") if dept_raw else sheet_dept          # بدون قسم = تكسير عام (من المخزن)
-            if dept_raw and not dept and _norm(dept_raw) not in (_norm("المخزن"),):
-                errs.append(f"القسم مو معروف: «{dept_raw}»")
+            dept = dmap.get(_norm(dept_raw), "") if dept_raw else sheet_dept
+            if not dept:
+                errs.append("القسم مو معروف" + (f": «{dept_raw}»" if dept_raw else " (اكتب عمود القسم أو سمّي الورقة باسم القسم)"))
             it = by_code.get(code.casefold()) if code else None
             if it is None and name:
                 it = by_name.get(name.casefold())
