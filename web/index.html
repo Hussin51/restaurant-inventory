@@ -185,6 +185,7 @@ tr.counted{background:var(--brand-soft)}
 @media(max-width:760px){table.lines,table.lines tbody{display:block;width:100%}table.lines thead{display:none}table.lines tr{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 0;border-bottom:1px solid var(--line,#e5e7eb);position:relative}table.lines td{display:block;padding:0;border:0;min-width:0}table.lines td:nth-child(1){display:none}table.lines td:nth-child(2){grid-column:1/-1}table.lines td:last-child{position:absolute;left:0;top:12px}table.lines td.tot{align-self:center;font-weight:700}table.lines input,table.lines select{width:100%}.lines td{padding:0}}
 @media(max-width:760px){body{flex-direction:column}.side{position:static;width:auto;height:auto;flex-direction:row;overflow-x:auto;padding:10px;gap:2px}.logo,.fileinfo,.sp{display:none}.nav{width:auto;white-space:nowrap;padding:9px 12px}main{padding:18px 16px}.types{grid-template-columns:repeat(3,1fr)}.types.t4{grid-template-columns:repeat(2,1fr)}.row,.row3{grid-template-columns:1fr}.dlg.wide>div[style*="grid-template-columns:210px"]{grid-template-columns:1fr!important}}
 /* لمسات تصميم */
+body.vo #headbtn,body.vo .save,body.vo .danger,body.vo #it-import,body.vo #it-bulk,body.vo .selc,body.vo #it-all,body.vo .gsel,body.vo #i-imp,body.vo .nav[data-v=invnew],body.vo .nav[data-v=count],body.vo .quick .main,body.vo .quick [data-t],body.vo #cl-tabs .chip[data-k=buy],body.vo #cl-tabs .chip[data-k=issue],body.vo .modal:not(#setmodal) .primary,body.vo #ln-go{display:none!important}
 .impbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--brand-soft);color:var(--brand);border-radius:12px;padding:10px 16px;margin-bottom:16px;font-weight:600;font-size:14px}
 .impbar .ghost{background:var(--surface);color:var(--ink)}
 .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}
@@ -267,6 +268,7 @@ tbody tr:hover td{background:var(--soft)}
 </aside>
 
 <main>
+  <div id="vobar" class="banner hide" style="background:var(--mv-bg);color:var(--mv)">نسخة مشاهدة فقط: تكدر تتصفح وتطبع بس ما تكدر تعدّل. لتحديث البيانات: الإعدادات ← استرجاع من نسخة احتياطية.</div>
   <div id="banner" class="banner hide"></div>
   <div id="upd" class="banner hide" style="background:var(--brand-soft);color:var(--brand);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"></div>
   <header><div><h1 id="title">تسجيل سريع</h1><div class="sub" id="today"></div></div>
@@ -554,6 +556,9 @@ tbody tr:hover td{background:var(--soft)}
   </div>
   <div class="hint">البرنامج ياخذ نسخة تلقائية كل يوم بمجلد «نسخ_احتياطية». لنقل البرنامج لكمبيوتر جديد: نزّل نسخة، ثبّت البرنامج على الجهاز الجديد، واضغط «استرجاع».</div>
   <div class="hint" id="st-bk"></div>
+  <h2 style="margin-top:26px">وضع المشاهدة فقط (للحاسبة الثانية)</h2>
+  <div class="hint" style="margin-top:0">فعّله بحاسبة ثانية تريد تتفرّج بيها على بياناتك بدون ما تعدّل. يمنع أي إضافة أو تعديل أو حذف، وما يكتب فوق نسخة السحابة. لتحديث البيانات بهذي الحاسبة: «استرجاع من نسخة احتياطية» بنسخة جديدة من الحاسبة الرئيسية.</div>
+  <label style="display:flex;gap:8px;align-items:center;font-weight:600;margin-top:10px"><input type="checkbox" id="st-vo"> هذي الحاسبة نسخة مشاهدة فقط</label>
   <h2 style="margin-top:26px">نسخة سحابية تلقائية</h2>
   <div class="hint" style="margin-top:0">اختار مجلد OneDrive أو Google Drive أو Dropbox الي على جهازك. البرنامج ينسخ بياناتك بيه لحاله بعد كل تعديل، وخدمة السحابة ترفعها للإنترنت.</div>
   <div class="chips" id="st-cdet" style="margin-top:10px"></div>
@@ -611,7 +616,7 @@ const thumb=(i,sm)=>i&&i.image?`<img class="th ${sm?'sm':''}" src="/img/${encode
 let IMGV=Date.now();
 
 async function load(){
-  try{D=await api("/api/data");IMGV=Date.now();$("#banner").classList.add("hide")}
+  try{D=await api("/api/data");IMGV=Date.now();document.body.classList.toggle("vo",!!D.viewonly);$("#vobar").classList.toggle("hide",!D.viewonly);if($("#st-vo"))$("#st-vo").checked=!!D.viewonly;$("#banner").classList.add("hide")}
   catch(e){const b=$("#banner");b.textContent=e.message;b.classList.remove("hide");return}
   $("#cloudnote").classList.toggle("hide",!!(D.cloud&&D.cloud.dir)||!D.cloud||CNHIDE);$("#fileinfo").textContent="الملف: "+D.file;$("#fileinfo").title=D.data_dir||"";$("#appname").textContent=D.settings.name;document.title=D.settings.name;
   if(qsel)qsel=byCode(qsel.code)||null;
@@ -1353,6 +1358,9 @@ function cloudUI(){const c=D.cloud||{};$("#st-cdir").value=c.dir||"";
 $("#st-csave").onclick=async()=>{try{await api("/api/cloud",{path:$("#st-cdir").value});await load();cloudUI();toast($("#st-cdir").value.trim()?"تم تفعيل النسخ السحابي":"تم إيقاف النسخ السحابي")}catch(e){toast(e.message,1)}};
 $("#st-cnow").onclick=async()=>{try{await api("/api/cloud_now",{});await load();cloudUI();toast("تم النسخ للسحابة")}catch(e){toast(e.message,1)}};
 $("#cn-go").onclick=()=>$("#setbtn").click();
+$("#st-vo").onchange=async()=>{const on=$("#st-vo").checked;
+  if(on&&!confirm("تفعّل وضع المشاهدة فقط بهذي الحاسبة؟\nما تكدر تعدّل ولا تضيف ولا تحذف إلا إذا رجّعته. (تكدر تسترجع نسخة جديدة وقت ما تريد).")){$("#st-vo").checked=false;return}
+  try{await api("/api/viewonly",{on});await load();toast(on?"صارت نسخة مشاهدة فقط":"رجعت تشتغل عادي")}catch(e){toast(e.message,1);$("#st-vo").checked=!on}};
 let LB={list:[],i:0};
 function lbShow(){const it=LB.list[LB.i];if(!it)return;
   $("#lbx-img").src="/img/"+encodeURIComponent(it.image)+"?t="+IMGV;$("#lbx-t").textContent=it.name;

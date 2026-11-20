@@ -2,7 +2,7 @@
 [Setup]
 AppId={{6F1C2B0A-8D4E-4B7A-9C55-3A1E0D2F7B11}
 AppName=جرد المطعم
-AppVersion=1.9.5
+AppVersion=1.9.6
 AppPublisher=Restaurant Inventory
 DefaultDirName={autopf}\RestaurantInventory
 DefaultGroupName=جرد المطعم

@@ -11,12 +11,13 @@ import clothes
 import updater
 from urllib.parse import urlparse, parse_qs, quote, unquote
 
-VERSION = "1.9.5"
+VERSION = "1.9.6"
 BASE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 LOCK = threading.Lock()
 PENDING = False
 LAST_WRITE = 0.0
 WRITE_PATHS = ("/api/movement", "/api/invoice", "/api/item", "/api/item_update", "/api/image", "/api/supplier", "/api/supplier_update", "/api/settings", "/api/restore", "/api/count", "/api/import_apply", "/api/inv_import_apply", "/api/sort_items", "/api/item_delete", "/api/items_delete", "/api/invoice_delete", "/api/supplier_delete", "/api/movement_delete", "/api/cl_item", "/api/cl_receive", "/api/cl_issue", "/api/cl_adjust", "/api/cl_doc_delete", "/api/cl_item_delete", "/api/cl_move_delete", "/api/cl_buy", "/api/cl_buy_delete")
+VIEW_OK = ("/api/viewonly", "/api/restore", "/api/quit", "/api/open", "/api/openfolder", "/api/update_install")
 STORE = None
 PORT = 0
 DATA = None
@@ -163,7 +164,7 @@ class H(BaseHTTPRequestHandler):
                 with LOCK:
                     d = STORE.all()
                 d.update(categories=CATEGORIES + sorted({i["cat"] for i in d["items"] if i["cat"] and i["cat"] not in CATEGORIES}), types=TYPES, inv_types=list(INV_TYPES), depts=d["settings"]["depts"], warehouse=WAREHOUSE, units=UNITS, file=DATA.xlsx_name,
-                         data_dir=DATA.dir, version=VERSION, backups=DATA.list_backups(),
+                         data_dir=DATA.dir, version=VERSION, viewonly=DATA.viewonly(), backups=DATA.list_backups(),
                          cloud=dict(dir=DATA.cloud_dir(), last=DATA.last_cloud, error=DATA.cloud_error, detected=storage.detect_cloud_dirs()))
                 self.send(200, to_json(d))
             except Exception as e:
@@ -206,9 +207,14 @@ class H(BaseHTTPRequestHandler):
         except ValueError:
             return self.send(400, to_json(dict(error="طلب غير صالح")))
         p = self.path
+        if DATA.viewonly() and p not in VIEW_OK:
+            return self.send(403, to_json(dict(error="هذي نسخة مشاهدة فقط: ما تنفع التعديلات. لتحديث البيانات: الإعدادات ← استرجاع من نسخة احتياطية")))
         try:
             res = {}
-            if p == "/api/movement":
+            if p == "/api/viewonly":
+                with LOCK:
+                    DATA.set_viewonly(bool(b.get("on")))
+            elif p == "/api/movement":
                 q = float(b["qty"]); q = int(q) if q == int(q) else q
                 with LOCK:
                     from datetime import datetime

@@ -100,10 +100,25 @@ class Data:
         self.cloud_backup()
         return path
 
+    def _vo_path(self):
+        return os.path.join(self.dir, "view-only.flag")
+
+    def viewonly(self):
+        """وضع المشاهدة فقط (للحاسبة الثانية): علامة محلية خارج ملف الإكسل وخارج النسخ الاحتياطية."""
+        return os.path.exists(self._vo_path())
+
+    def set_viewonly(self, on):
+        if on:
+            os.makedirs(self.dir, exist_ok=True)
+            with open(self._vo_path(), "w", encoding="utf8") as f:
+                f.write("1")
+        elif os.path.exists(self._vo_path()):
+            os.remove(self._vo_path())
+
     def cloud_backup(self):
         """يكتب آخر نسخة + نسخة اليوم بمجلد السحابة. يرفع OSError إذا فشل."""
         path = self.cloud_dir()
-        if not path:
+        if not path or self.viewonly():                    # نسخة المشاهدة ما تكتب فوق نسخة السحابة
             return None
         target = os.path.join(path, CLOUD_SUB)
         os.makedirs(target, exist_ok=True)

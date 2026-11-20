@@ -56,6 +56,33 @@ class HttpSecurityTests(unittest.TestCase):
             urllib.request.urlopen(r, timeout=10)
         self.assertEqual(e.exception.code, 400)
 
+    def test_view_only_mode_blocks_writes_but_allows_restore_and_toggle(self):
+        ok = {"X-Requested-With": "jard", "Origin": f"http://127.0.0.1:{self.port}"}
+        self.assertEqual(self.req("/api/viewonly", {"on": True}, ok), 200)
+        try:
+            self.assertTrue(app.DATA.viewonly())
+            self.assertEqual(self.req("/api/supplier", {"name": "م", "phone": "1"}, ok), 403)
+            self.assertEqual(self.req("/api/settings", {"name": "x"}, ok), 403)
+            self.assertEqual(self.req("/api/items_delete", {"codes": ["x"]}, ok), 403)
+            self.assertEqual(self.req("/api/data"), 200)                                  # القراءة شغالة
+            self.assertEqual(self.req("/api/restore", {"data": ""}, ok), 400)             # مسموح (يرفض الملف الفاضي بس مو بسبب الوضع)
+            d = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{self.port}/api/data", timeout=30).read())
+            self.assertTrue(d["viewonly"])
+        finally:
+            self.assertEqual(self.req("/api/viewonly", {"on": False}, ok), 200)
+        self.assertFalse(app.DATA.viewonly())
+        self.assertEqual(self.req("/api/supplier", {"name": "م", "phone": "1"}, ok), 200)
+
+    def test_view_only_flag_stops_cloud_copy(self):
+        d = storage.Data(tempfile.mkdtemp())
+        d.ensure(os.path.join(ROOT, "template.xlsx"))
+        cloud = tempfile.mkdtemp()
+        d.set_cloud(cloud)
+        d.set_viewonly(True)
+        self.assertIsNone(d.cloud_backup())
+        d.set_viewonly(False)
+        self.assertIsNotNone(d.cloud_backup())
+
 
 if __name__ == "__main__":
     unittest.main()
