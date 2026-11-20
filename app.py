@@ -11,12 +11,12 @@ import clothes
 import updater
 from urllib.parse import urlparse, parse_qs, quote, unquote
 
-VERSION = "1.9.7"
+VERSION = "1.9.6"
 BASE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 LOCK = threading.Lock()
 PENDING = False
 LAST_WRITE = 0.0
-WRITE_PATHS = ("/api/movement", "/api/invoice", "/api/item", "/api/item_update", "/api/image", "/api/supplier", "/api/supplier_update", "/api/settings", "/api/restore", "/api/count", "/api/import_apply", "/api/inv_import_apply", "/api/bk_apply", "/api/sort_items", "/api/item_delete", "/api/items_delete", "/api/invoice_delete", "/api/supplier_delete", "/api/movement_delete", "/api/cl_item", "/api/cl_receive", "/api/cl_issue", "/api/cl_adjust", "/api/cl_doc_delete", "/api/cl_item_delete", "/api/cl_move_delete", "/api/cl_buy", "/api/cl_buy_delete")
+WRITE_PATHS = ("/api/movement", "/api/invoice", "/api/item", "/api/item_update", "/api/image", "/api/supplier", "/api/supplier_update", "/api/settings", "/api/restore", "/api/count", "/api/import_apply", "/api/inv_import_apply", "/api/sort_items", "/api/item_delete", "/api/items_delete", "/api/invoice_delete", "/api/supplier_delete", "/api/movement_delete", "/api/cl_item", "/api/cl_receive", "/api/cl_issue", "/api/cl_adjust", "/api/cl_doc_delete", "/api/cl_item_delete", "/api/cl_move_delete", "/api/cl_buy", "/api/cl_buy_delete")
 VIEW_OK = ("/api/viewonly", "/api/restore", "/api/quit", "/api/open", "/api/openfolder", "/api/update_install")
 STORE = None
 PORT = 0
@@ -151,16 +151,6 @@ class H(BaseHTTPRequestHandler):
             self.send(200, to_json(dict(app="jard-almat3am", version=VERSION)))
         elif path == "/api/update_check":
             self.send(200, to_json(updater.check(VERSION)))
-        elif path == "/api/breakage_template":
-            with LOCK:
-                depts = STORE.all()["settings"]["depts"]
-            body = importer.breakage_template(depts)
-            self.send_response(200)
-            self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-            self.send_header("Content-Disposition", "attachment; filename=\"breakage_template.xlsx\"; filename*=UTF-8''" + quote("قالب_التكسير.xlsx"))
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
         elif path == "/api/invoice_template":
             body = importer.invoice_template()
             self.send_response(200)
@@ -369,42 +359,6 @@ class H(BaseHTTPRequestHandler):
                                                            update_prices=bool(b.get("update_prices", True)),
                                                            lines=[dict(code=x["code"], unit=x["unit"], qty=x["qty"], price=x["price"]) for x in lines]))
                         res.update(created=len(new), lines=len(lines), skipped=parsed["counts"]["error"])
-            elif p in ("/api/bk_preview", "/api/bk_apply"):
-                raw = base64.b64decode((b.get("data") or "").split(",")[-1] or b"")
-                with LOCK:
-                    items = STORE.items()
-                    depts = STORE.all()["settings"]["depts"]
-                    parsed = importer.parse_breakage(raw, {i["code"].casefold(): i for i in items}, {i["name"].casefold(): i for i in items}, depts)
-                    held, used = {i["name"]: (i.get("holdings") or {}) for i in items}, {}
-                    for x in parsed["lines"]:
-                        if x["status"] != "ok":
-                            continue
-                        k = (x["dept"], x["name"])
-                        used[k] = used.get(k, 0) + x["qty"]
-                        have = held.get(x["name"], {}).get(x["dept"], 0)
-                        x["held"] = have
-                        if used[k] > have:
-                            x["message"] = f"تنبيه: أكبر من الموجود عند القسم ({have:g})، يصير الرصيد عنده بالسالب"
-                    if p == "/api/bk_preview":
-                        res.update(parsed)
-                    else:
-                        lines = [x for x in parsed["lines"] if x["status"] == "ok"]
-                        if not lines:
-                            raise ValueError("ما كو سطور صالحة بالملف")
-                        from datetime import datetime
-                        dflt = datetime.strptime(b.get("date") or date.today().isoformat(), "%Y-%m-%d").date()
-                        tag = b.get("label") or "تكسير نهاية الشهر"
-                        moves = []
-                        for x in lines:
-                            try:
-                                d = datetime.strptime(x["date"], "%Y-%m-%d").date() if x["date"] else dflt
-                            except ValueError:
-                                d = dflt
-                            note = " · ".join(t for t in (tag, b.get("note", ""), x["note"]) if t)
-                            moves.append(dict(d=d, item=x["name"], typ="كسر وضياع", qty=x["qty"], frm=x["dept"], to="", note=note))
-                        DATA.make_backup("before-import")
-                        n = STORE.add_movements(moves)
-                        res.update(moves=n, qty=sum(x["qty"] for x in lines), skipped=parsed["counts"]["error"])
             elif p == "/api/items_delete":
                 with LOCK:
                     DATA.make_backup("before-delete")

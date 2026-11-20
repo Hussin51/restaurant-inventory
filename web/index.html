@@ -185,7 +185,7 @@ tr.counted{background:var(--brand-soft)}
 @media(max-width:760px){table.lines,table.lines tbody{display:block;width:100%}table.lines thead{display:none}table.lines tr{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 0;border-bottom:1px solid var(--line,#e5e7eb);position:relative}table.lines td{display:block;padding:0;border:0;min-width:0}table.lines td:nth-child(1){display:none}table.lines td:nth-child(2){grid-column:1/-1}table.lines td:last-child{position:absolute;left:0;top:12px}table.lines td.tot{align-self:center;font-weight:700}table.lines input,table.lines select{width:100%}.lines td{padding:0}}
 @media(max-width:760px){body{flex-direction:column}.side{position:static;width:auto;height:auto;flex-direction:row;overflow-x:auto;padding:10px;gap:2px}.logo,.fileinfo,.sp{display:none}.nav{width:auto;white-space:nowrap;padding:9px 12px}main{padding:18px 16px}.types{grid-template-columns:repeat(3,1fr)}.types.t4{grid-template-columns:repeat(2,1fr)}.row,.row3{grid-template-columns:1fr}.dlg.wide>div[style*="grid-template-columns:210px"]{grid-template-columns:1fr!important}}
 /* لمسات تصميم */
-body.vo #rg-bk,body.vo #headbtn,body.vo .save,body.vo .danger,body.vo #it-import,body.vo #it-bulk,body.vo .selc,body.vo #it-all,body.vo .gsel,body.vo #i-imp,body.vo .nav[data-v=invnew],body.vo .nav[data-v=count],body.vo .quick .main,body.vo .quick [data-t],body.vo #cl-tabs .chip[data-k=buy],body.vo #cl-tabs .chip[data-k=issue],body.vo .modal:not(#setmodal) .primary,body.vo #ln-go{display:none!important}
+body.vo #headbtn,body.vo .save,body.vo .danger,body.vo #it-import,body.vo #it-bulk,body.vo .selc,body.vo #it-all,body.vo .gsel,body.vo #i-imp,body.vo .nav[data-v=invnew],body.vo .nav[data-v=count],body.vo .quick .main,body.vo .quick [data-t],body.vo #cl-tabs .chip[data-k=buy],body.vo #cl-tabs .chip[data-k=issue],body.vo .modal:not(#setmodal) .primary,body.vo #ln-go{display:none!important}
 .impbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--brand-soft);color:var(--brand);border-radius:12px;padding:10px 16px;margin-bottom:16px;font-weight:600;font-size:14px}
 .impbar .ghost{background:var(--surface);color:var(--ink)}
 .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}
@@ -379,7 +379,6 @@ tbody tr:hover td{background:var(--soft)}
         <div id="rg-period"><label>الفترة</label><div class="chips" id="rperiods"></div></div>
         <div id="rg-dates" style="display:flex;gap:10px"><div><label>من</label><input id="r-from" type="date"></div><div><label>إلى</label><input id="r-to" type="date"></div></div>
         <div id="rg-dept"><label>القسم</label><select id="r-dept"></select></div>
-        <div id="rg-bk" class="hide" style="align-self:end;display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="ghost" id="bk-import">استيراد تكسير من إكسل</button><a class="ghost" href="/api/breakage_template" style="text-decoration:none">قالب التكسير</a><input type="file" id="bk-file" accept=".xlsx,.xlsm" class="hide"></div>
         <div id="rg-sup"><label>المورد</label><select id="r-sup"></select></div>
         <div id="rg-fac"><label>تغطية حتى (× الحد الأدنى)</label><input id="r-fac" type="number" min="1" step="0.5" value="2"></div>
         <div style="margin-inline-start:auto;display:flex;gap:10px"><button class="ghost" id="r-print">طباعة</button><button class="primary" id="r-xlsx">تصدير إكسل</button></div>
@@ -536,14 +535,6 @@ tbody tr:hover td{background:var(--soft)}
   <label style="display:flex;gap:8px;align-items:center;font-weight:600;margin-top:14px"><input type="checkbox" id="ip-create" checked> أنشئ المواد الجديدة تلقائياً (بالاسم والسعر والصورة اللي بالملف)</label>
   <label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="ip-upd" checked> حدّث سعر المواد بآخر سعر شراء</label>
   <div class="btns"><button class="primary" id="ip-go">إنشاء الفاتورة</button><button class="ghost" id="ip-cancel">إلغاء</button></div>
-</div></div>
-<div class="modal" id="bkmodal"><div class="card dlg wide">
-  <h2>استيراد تكسير نهاية الشهر</h2>
-  <div class="row3"><div><label style="margin-top:0">تاريخ التسجيل</label><input id="bk-date" type="date"></div><div style="grid-column:span 2"><label style="margin-top:0">اسم التكسير (يطلع بالملاحظات)</label><input id="bk-label" placeholder="مثلاً: تكسير شهر 11/2026"></div></div>
-  <div class="hint" id="bk-sum" style="margin:12px 0 6px;font-size:14px"></div>
-  <div class="tw" style="max-height:320px;overflow:auto;border:1px solid var(--line);border-radius:12px"><table><thead><tr><th>القسم</th><th>الكود</th><th>المادة</th><th class="num">الكمية</th><th>الحالة</th></tr></thead><tbody id="bk-body"></tbody></table></div>
-  <div class="hint">كل سطر يتسجل كحركة «كسر وضياع» على القسم (ينقص من الموجود عنده). تنحفظ نسخة احتياطية قبل الاستيراد. السطور اللي فيها خطأ تنتخطى.</div>
-  <div class="btns"><button class="primary" id="bk-go">تسجيل التكسير</button><button class="ghost" id="bk-cancel">إلغاء</button></div>
 </div></div>
 <div class="lbx" id="lbx"><button class="lbn" id="lbx-next" title="التالي">›</button><button class="lbn" id="lbx-prev" title="السابق">‹</button><img id="lbx-img" alt=""><b id="lbx-t"></b><span id="lbx-s" class="lbs"></span><small>اضغط بأي مكان أو Esc للإغلاق · الأسهم للتنقل بين الصور</small></div>
 
@@ -962,24 +953,6 @@ $("#ip-go").onclick=async()=>{if(!$("#ip-sup").value)return toast("اختار ا
     $("#ipmodal").classList.remove("open");await load();toast(`تم إنشاء الفاتورة ${r.no} (${r.lines} سطر${r.created?` · ${r.created} مادة جديدة`:""}${r.skipped?` · ${r.skipped} انتخطى`:""})`);
     invReset("شراء");renderInvForm();showInvoice(r.no)}
   catch(e){toast(e.message,1)}finally{b.disabled=false;b.textContent="إنشاء الفاتورة"}};
-
-/* استيراد التكسير (نهاية الشهر) */
-let BKRAW="";
-function bkStatus(x){return x.status==="ok"?(x.message?`<span class="pill low" title="${esc(x.message)}">${esc(x.message)}</span>`:`<span class="pill in">تمام</span>`):`<span class="pill out">${esc(x.message)}</span>`}
-$("#bk-import").onclick=()=>$("#bk-file").click();
-$("#bk-file").onchange=e=>{const f=e.target.files[0];e.target.value="";if(!f)return;
-  const fr=new FileReader();fr.onload=async()=>{BKRAW=fr.result;
-    try{const r=await api("/api/bk_preview",{data:BKRAW});const c=r.counts;
-      $("#bk-sum").textContent=`${c.total} سطر: ${c.ok} صالح (${fmt(c.qty)} قطعة)، ${c.error} فيه خطأ (ينتخطى)`;
-      $("#bk-body").innerHTML=r.lines.map(x=>`<tr><td>${esc(x.dept||"—")}</td><td><span class="code">${esc(x.code||"—")}</span></td><td>${esc(x.name)}</td><td class="num">${fmt(x.qty)}</td><td>${bkStatus(x)}</td></tr>`).join("");
-      $("#bk-date").value=today();$("#bk-label").value="تكسير نهاية الشهر "+today().slice(0,7);$("#bk-go").disabled=!c.ok;$("#bkmodal").classList.add("open")}
-    catch(er){toast(er.message,1)}};fr.readAsDataURL(f)};
-$("#bk-cancel").onclick=()=>$("#bkmodal").classList.remove("open");
-$("#bk-go").onclick=async()=>{const b=$("#bk-go");b.disabled=true;b.textContent="جاري التسجيل...";
-  try{const r=await api("/api/bk_apply",{data:BKRAW,date:$("#bk-date").value,label:$("#bk-label").value});
-    $("#bkmodal").classList.remove("open");await load();toast(`تم تسجيل ${r.moves} حركة تكسير (${fmt(r.qty)} قطعة)${r.skipped?` · ${r.skipped} انتخطى`:""}`);
-    RK="breakage";RP="month";[RD.from,RD.to]=periodRange("month");RD.dept="";go("reports")}
-  catch(e){toast(e.message,1)}finally{b.disabled=false;b.textContent="تسجيل التكسير"}};
 /* شراء الملابس */
 let CBL=[{}];
 const lastBuyPrice=(code,cur)=>{const ps=CL().purchases||[];for(let k=ps.length-1;k>=0;k--){if(ps[k].cur!==cur)continue;const l=ps[k].lines.find(x=>x.code===code);if(l)return l.price}return ""};
@@ -1081,7 +1054,7 @@ $("#ln-go").onclick=()=>go("loans");
 
 /* ---------- التقارير ---------- */
 let RK="reorder",RP="month",RD={dept:"",supplier:"",from:"",to:"",factor:2};
-const RKINDS=[["reorder","قائمة طلب شراء"],["movement","المشتريات والإخراج"],["dept","تقرير قسم"],["supplier","كشف حساب مورد"],["location","توزيع الأقسام"],["breakage","تقرير التكسير"]];
+const RKINDS=[["reorder","قائمة طلب شراء"],["movement","المشتريات والإخراج"],["dept","تقرير قسم"],["supplier","كشف حساب مورد"],["location","توزيع الأقسام"]];
 const RPER=[["today","اليوم"],["week","آخر 7 أيام"],["month","هذا الشهر"],["lastmonth","الشهر الماضي"],["all","كل الفترة"]];
 const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 function periodRange(k){const n=new Date(),t=ymd(n);
@@ -1090,15 +1063,15 @@ function periodRange(k){const n=new Date(),t=ymd(n);
   return["",""]}
 function reportsUI(){
   $("#rkinds").innerHTML=RKINDS.map(([k,t])=>`<button class="chip ${k===RK?'on':''}" data-k="${k}">${t}</button>`).join("");
-  document.querySelectorAll("#rkinds .chip").forEach(b=>b.onclick=()=>{RK=b.dataset.k;if(RK==="breakage")RD.dept="";reportsUI();runReport()});
+  document.querySelectorAll("#rkinds .chip").forEach(b=>b.onclick=()=>{RK=b.dataset.k;reportsUI();runReport()});
   $("#rperiods").innerHTML=RPER.map(([k,t])=>`<button class="chip ${k===RP?'on':''}" data-p="${k}">${t}</button>`).join("");
   document.querySelectorAll("#rperiods .chip").forEach(b=>b.onclick=()=>{RP=b.dataset.p;[RD.from,RD.to]=periodRange(RP);reportsUI();runReport()});
   const dated=!["reorder","location"].includes(RK);
   $("#rg-period").classList.toggle("hide",!dated);$("#rg-dates").classList.toggle("hide",!dated);
-  $("#rg-dept").classList.toggle("hide",RK!=="dept"&&RK!=="breakage");$("#rg-bk").classList.toggle("hide",RK!=="breakage");$("#rg-sup").classList.toggle("hide",RK!=="supplier");$("#rg-fac").classList.toggle("hide",RK!=="reorder");
-  if(RK==="breakage"){if(RD.dept&&RD.dept!==D.warehouse&&!D.depts.includes(RD.dept))RD.dept=""}else if(!RD.dept||!D.depts.includes(RD.dept))RD.dept=D.depts[0]||"";
+  $("#rg-dept").classList.toggle("hide",RK!=="dept");$("#rg-sup").classList.toggle("hide",RK!=="supplier");$("#rg-fac").classList.toggle("hide",RK!=="reorder");
+  if(!RD.dept||!D.depts.includes(RD.dept))RD.dept=D.depts[0]||"";
   if(!RD.supplier||!D.suppliers.some(s=>s.name===RD.supplier))RD.supplier=(D.suppliers[0]||{}).name||"";
-  $("#r-dept").innerHTML=(RK==="breakage"?`<option value="" ${RD.dept?"":"selected"}>كل الأقسام</option>`:"")+(RK==="breakage"?[D.warehouse,...D.depts]:D.depts).map(d=>`<option ${d===RD.dept?"selected":""}>${esc(d)}</option>`).join("");
+  $("#r-dept").innerHTML=D.depts.map(d=>`<option ${d===RD.dept?"selected":""}>${esc(d)}</option>`).join("");
   $("#r-sup").innerHTML=D.suppliers.length?D.suppliers.map(x=>`<option ${x.name===RD.supplier?"selected":""}>${esc(x.name)}</option>`).join(""):'<option value="">ما كو موردين</option>';
   $("#r-from").value=RD.from;$("#r-to").value=RD.to;$("#r-fac").value=RD.factor;
 }
