@@ -78,15 +78,17 @@ jobs:
           path: |
             dist/RestaurantInventory.exe
             installer/Output/RestaurantInventory-Setup.exe
-      - name: Prepare update manifest (version.json)
+      - name: Prepare update manifest (version.json + versioned installer)
         shell: pwsh
         run: |
           $ver = (Select-String -Path app.py -Pattern '^VERSION = "([^"]+)"').Matches[0].Groups[1].Value
-          $sha = (Get-FileHash installer\Output\RestaurantInventory-Setup.exe -Algorithm SHA256).Hash.ToLower()
-          $json = @{ version = $ver; sha256 = $sha; notes = "" } | ConvertTo-Json
+          $name = "RestaurantInventory-Setup-$ver.exe"
+          Copy-Item installer\Output\RestaurantInventory-Setup.exe "installer\Output\$name"
+          $sha = (Get-FileHash "installer\Output\$name" -Algorithm SHA256).Hash.ToLower()
+          $json = @{ version = $ver; sha256 = $sha; file = $name; notes = "" } | ConvertTo-Json
           [IO.File]::WriteAllText("$PWD\installer\Output\version.json", $json, (New-Object Text.UTF8Encoding($false)))
           Get-Content installer\Output\version.json
-      - name: Publish release (download link + auto-update source)
+      - name: Publish installers (download link)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: inventory-latest
@@ -97,5 +99,19 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             installer/Output/RestaurantInventory-Setup.exe
-            installer/Output/version.json
+            installer/Output/RestaurantInventory-Setup-*.exe
             dist/RestaurantInventory.exe
+      - name: Publish update manifest (after the installers are in place)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: inventory-latest
+          fail_on_unmatched_files: true
+          files: installer/Output/version.json
+      - name: Keep only the 3 newest versioned installers
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $names = gh release view inventory-latest --repo ${{ github.repository }} --json assets --jq '.assets[].name' | Where-Object { $_ -match '^RestaurantInventory-Setup-\d' }
+          $sorted = $names | Sort-Object { [version]($_ -replace '^RestaurantInventory-Setup-','' -replace '\.exe$','') } -Descending
+          $sorted | Select-Object -Skip 3 | ForEach-Object { gh release delete-asset inventory-latest $_ --repo ${{ github.repository }} -y }

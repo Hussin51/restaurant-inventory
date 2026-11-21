@@ -6,12 +6,21 @@ class H(http.server.BaseHTTPRequestHandler):
     exe = b"MZfake-installer"
     ver = "9.9.9"
     sha = None
+    file = None          # اسم المثبّت بالنسخة الجديدة (مثل RestaurantInventory-Setup-9.9.9.exe)
+    stale = 0            # كم تنزيل أول يرجّع ملف قديم (كاش) قبل ما يطلع الصحيح
+    hits = 0
 
     def do_GET(self):
         if self.path.endswith("/version.json"):
-            body = json.dumps(dict(version=H.ver, sha256=H.sha or hashlib.sha256(H.exe).hexdigest(), notes="x")).encode()
+            d = dict(version=H.ver, sha256=H.sha or hashlib.sha256(H.exe).hexdigest(), notes="x")
+            if H.file:
+                d["file"] = H.file
+            body = json.dumps(d).encode()
+        elif self.path.endswith("/" + (H.file or "RestaurantInventory-Setup.exe")):
+            H.hits += 1
+            body = b"STALE-OLD-INSTALLER" if H.hits <= H.stale else H.exe
         elif self.path.endswith("/RestaurantInventory-Setup.exe"):
-            body = H.exe
+            body = b"STALE-OLD-INSTALLER"                    # الاسم الثابت لسه فيه الملف القديم
         else:
             self.send_response(404); self.end_headers(); return
         self.send_response(200); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
@@ -31,7 +40,7 @@ class UpdaterTests(unittest.TestCase):
         cls.srv.shutdown(); os.environ.pop("INVENTORY_UPDATE_URL", None)
 
     def setUp(self):
-        H.ver, H.sha = "9.9.9", None
+        H.ver, H.sha, H.file, H.stale, H.hits = "9.9.9", None, None, 0, 0
 
     def test_versions_compare_numerically(self):
         self.assertTrue(updater.vtuple("1.10.0") > updater.vtuple("1.9.2"))
@@ -56,17 +65,33 @@ class UpdaterTests(unittest.TestCase):
             os.environ["INVENTORY_UPDATE_URL"] = f"http://127.0.0.1:{self.srv.server_port}"
 
     def test_download_verifies_hash(self):
-        p = updater.download_installer()
+        p = updater.download_installer(wait=0)
         self.assertEqual(open(p, "rb").read(), H.exe)
 
     def test_download_rejects_wrong_hash(self):
         H.sha = "0" * 64
-        with self.assertRaises(ValueError):
-            updater.download_installer()
+        with self.assertRaises(ValueError) as e:
+            updater.download_installer(wait=0)
+        self.assertIn("بصمة", str(e.exception))
 
     def test_rejects_info_without_hash(self):
         with self.assertRaises(ValueError):
             updater.download_installer({"version": "9.9.9"})
+
+    def test_versioned_installer_name_is_used(self):
+        H.file = "RestaurantInventory-Setup-9.9.9.exe"           # الاسم الثابت يرجّع ملف قديم، والاسم بالرقم هو الصحيح
+        p = updater.download_installer(wait=0)
+        self.assertEqual(open(p, "rb").read(), H.exe)
+
+    def test_unsafe_file_name_falls_back_to_default(self):
+        self.assertEqual(updater._installer_name({"file": "../evil.exe"}), "RestaurantInventory-Setup.exe")
+        self.assertEqual(updater._installer_name({"file": "RestaurantInventory-Setup-1.9.11.exe"}), "RestaurantInventory-Setup-1.9.11.exe")
+
+    def test_stale_download_is_retried_then_succeeds(self):
+        H.stale = 1                                              # أول تنزيل ملف قديم (كاش)، الثاني الصحيح
+        p = updater.download_installer(wait=0)
+        self.assertEqual(open(p, "rb").read(), H.exe)
+        self.assertEqual(H.hits, 2)
 
 
 if __name__ == "__main__":

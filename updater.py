@@ -1,5 +1,5 @@
 """تحديث البرنامج من مستودع عام للتحديثات: يفحص رقم آخر نسخة، وينزّل المثبّت ويتحقق من بصمته ثم يشغّله."""
-import hashlib, json, os, subprocess, tempfile, urllib.request
+import hashlib, json, os, re, subprocess, tempfile, time, urllib.request
 
 REPO = os.environ.get("INVENTORY_UPDATE_REPO", "Hussin51/restaurant-inventory")
 TAG = "inventory-latest"
@@ -36,16 +36,20 @@ def check(current, timeout=6):
         return dict(available=False, current=current, latest="", notes="", error=str(e))
 
 
-def download_installer(info=None, timeout=120):
-    """ينزّل المثبّت لمجلد مؤقت ويتحقق من SHA-256. يرجع مسار الملف."""
-    info = info or fetch_info()
+def _installer_name(info):
+    """اسم ملف المثبّت: النسخ الجديدة تنشر اسم بالرقم (مثل RestaurantInventory-Setup-1.9.11.exe) حتى ما يصير تعارض مع ملف قديم محفوظ بالكاش."""
+    n = str(info.get("file", "")) if isinstance(info, dict) else ""
+    return n if re.fullmatch(r"RestaurantInventory-Setup[A-Za-z0-9._-]*\.exe", n) else "RestaurantInventory-Setup.exe"
+
+
+def _download_once(info, timeout):
     want = str(info.get("sha256", "")).lower()
     if len(want) != 64:
         raise ValueError("ملف التحديث ما فيه بصمة للتحقق، تم الإلغاء")
     d = tempfile.mkdtemp(prefix="inv-update-")
     path = os.path.join(d, "RestaurantInventory-Setup.exe")
     h = hashlib.sha256()
-    req = urllib.request.Request(base_url() + "/RestaurantInventory-Setup.exe", headers={"User-Agent": "restaurant-inventory"})
+    req = urllib.request.Request(base_url() + "/" + _installer_name(info), headers={"User-Agent": "restaurant-inventory", "Cache-Control": "no-cache"})
     with urllib.request.urlopen(req, timeout=timeout) as r, open(path, "wb") as f:
         while True:
             b = r.read(1 << 16)
@@ -55,8 +59,21 @@ def download_installer(info=None, timeout=120):
             f.write(b)
     if h.hexdigest().lower() != want:
         os.remove(path)
-        raise ValueError("بصمة الملف المنزَّل ما تطابق، تم إلغاء التحديث")
+        return None
     return path
+
+
+def download_installer(info=None, timeout=120, retries=2, wait=6):
+    """ينزّل المثبّت لمجلد مؤقت ويتحقق من SHA-256. إذا ما طابقت (ملف قديم بالكاش أو النشر لسه شغال) يعيد قراءة معلومات النسخة ويحاول مرة ثانية."""
+    info = info or fetch_info()
+    for k in range(retries + 1):
+        path = _download_once(info, timeout)
+        if path:
+            return path
+        if k < retries:
+            time.sleep(wait)
+            info = fetch_info()
+    raise ValueError("بصمة الملف المنزَّل ما تطابق (ممكن النسخة الجديدة لسه تنرفع). انتظر دقيقتين وجرّب مرة ثانية، أو نزّل المثبّت من صفحة الإصدارات")
 
 
 def launch(path):
