@@ -69,10 +69,11 @@ class ImportTests(unittest.TestCase):
                         ["A-5", "مكرر الكود", None, None, None, None, 1, None, None, None, None, None, None],
                         ["A-6", "جيد", None, None, None, None, 1, None, None, None, None, None, None]])
         st = {x["row"]: x for x in r["rows"]}
-        self.assertEqual(r["counts"]["error"], 7)
+        self.assertEqual(r["counts"]["error"], 6)                           # السطر بدون كود صار «تخطي» مو خطأ
+        self.assertEqual(r["counts"]["skip"], 1)
         self.assertEqual(r["counts"]["new"], 1)
-        self.assertEqual(st[6]["status"], "error")
-        self.assertIn("الكود مطلوب", st[6]["message"])
+        self.assertEqual(st[6]["status"], "skip")
+        self.assertIn("بدون كود", st[6]["message"])
         self.assertIn("سالب", st[8]["message"])
         self.assertIn("قطع بالكارتون", st[9]["message"])
         self.assertIn("مو رقم", st[10]["message"])
@@ -81,6 +82,15 @@ class ImportTests(unittest.TestCase):
         self.assertIn("الاسم مكرر", st[13]["message"])
         res = self.s.import_items(r["rows"])                                  # الأخطاء ما تنستورد
         self.assertEqual(res["added"], 1)
+
+    def test_rows_without_code_are_skipped_not_errors(self):
+        r = self.parse([["", "مادة بدون كود", None, None, None, None, 10, None, None, None, None, 5, None],
+                        [None, "مادة ثانية بدون كود", None, None, None, None, 3, None, None, None, None, 2, None],
+                        ["B-1", "مادة بكود", None, None, None, None, 7, None, None, None, None, 4, None]])
+        self.assertEqual((r["counts"]["skip"], r["counts"]["error"], r["counts"]["new"]), (2, 0, 1))
+        res = self.s.import_items(r["rows"])
+        self.assertEqual(res["added"], 1)
+        self.assertEqual([i["code"] for i in self.s.items()], ["B-1"])
 
     def test_existing_codes_skip_or_update(self):
         self.s.add_item("PL-001", "صحن", "صحون وكاسات", "قطعة", 100, 1500, 20, usage="قديم")

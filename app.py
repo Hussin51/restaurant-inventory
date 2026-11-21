@@ -11,7 +11,7 @@ import clothes
 import updater
 from urllib.parse import urlparse, parse_qs, quote, unquote
 
-VERSION = "1.9.9"
+VERSION = "1.9.10"
 BASE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 LOCK = threading.Lock()
 PENDING = False
@@ -297,10 +297,11 @@ class H(BaseHTTPRequestHandler):
                         DATA.make_backup("before-import")
                         res.update(STORE.import_items(parsed["rows"], b.get("mode", "skip")))
                         res["errors"] = parsed["counts"]["error"]
+                        res["nocode"] = parsed["counts"]["skip"]
                         imgs, n_img = importer.extract_images(raw), 0
                         have = {i["code"].casefold(): i.get("image") for i in STORE.items()}
                         for x in parsed["rows"]:
-                            if x["status"] == "error" or x["row"] not in imgs:
+                            if x["status"] in ("error", "skip") or x["row"] not in imgs:
                                 continue
                             was_new = x["status"] == "new"
                             if not was_new and (b.get("mode") != "update" or have.get(x["code"].casefold())):

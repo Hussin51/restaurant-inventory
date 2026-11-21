@@ -741,7 +741,7 @@ class Store:
         sup_ws = wb[SUP_SHEET]
         added = updated = skipped = new_sup = 0
         for x in rows:
-            if x["status"] == "error":
+            if x["status"] in ("error", "skip"):
                 continue
             key = x["code"].casefold()
             sup = None

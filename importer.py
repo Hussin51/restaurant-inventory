@@ -112,9 +112,11 @@ def parse(data, existing_codes=None, existing_names=None, suppliers=None):
         code, name = _txt(get("code")), _txt(get("name"))
         if code.casefold() in {x.casefold() for x in EXAMPLE_CODES}:
             continue                                                  # سطر المثال
+        if not code:                                                  # بدون كود: يتخطى (مو خطأ)
+            out.append(dict(row=i, code="", name=name, category="", usage="", carton=0, shad=0, price=0, opening=0, min=0, supplier="", currency="دينار",
+                            has={}, status="skip", message="بدون كود: يتخطى"))
+            continue
         errs = []
-        if not code:
-            errs.append("الكود مطلوب")
         if not name:
             errs.append("اسم المادة مطلوب")
         carton = _num(get("carton"), "قطع بالكارتون", errs, True)
@@ -161,7 +163,7 @@ def parse(data, existing_codes=None, existing_names=None, suppliers=None):
                         has=dict(currency=bool(cur_raw), price=price is not None, min=(min_p is not None or min_c is not None), carton=carton is not None,
                                  shad=shad is not None, usage=bool(_txt(get("usage"))), supplier=bool(sup), category=bool(_txt(get("category")))),
                         status=status, message="؛ ".join(errs)))
-    counts = {s: sum(1 for r in out if r["status"] == s) for s in ("new", "exists", "error")}
+    counts = {s: sum(1 for r in out if r["status"] == s) for s in ("new", "exists", "error", "skip")}
     counts["total"] = len(out)
     counts["new_suppliers"] = sorted(new_suppliers)
     return {"rows": out, "counts": counts}

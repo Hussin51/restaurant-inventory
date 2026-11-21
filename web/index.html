@@ -1176,11 +1176,11 @@ $("#imp-file").onchange=e=>{const f=e.target.files[0];e.target.value="";if(!f)re
 function renderImp(){
   const c=IMP.r.counts,rows=IMP.r.rows;
   $("#imp-step1").classList.add("hide");$("#imp-step2").classList.remove("hide");
-  $("#imp-cards").innerHTML=`<div class="rcard"><small>سطور بالملف</small><b>${fmt(c.total)}</b></div><div class="rcard"><small>مواد جديدة</small><b style="color:var(--in)">${fmt(c.new)}</b></div><div class="rcard"><small>موجودة من قبل</small><b>${fmt(c.exists)}</b></div><div class="rcard ${c.error?"bad":""}"><small>فيها أخطاء (ما تنستورد)</small><b>${fmt(c.error)}</b></div>`;
+  $("#imp-cards").innerHTML=`<div class="rcard"><small>سطور بالملف</small><b>${fmt(c.total)}</b></div><div class="rcard"><small>مواد جديدة</small><b style="color:var(--in)">${fmt(c.new)}</b></div><div class="rcard"><small>موجودة من قبل</small><b>${fmt(c.exists)}</b></div>${c.skip?`<div class="rcard"><small>بدون كود (يتخطى)</small><b>${fmt(c.skip)}</b></div>`:""}<div class="rcard ${c.error?"bad":""}"><small>فيها أخطاء (ما تنستورد)</small><b>${fmt(c.error)}</b></div>`;
   $("#imp-sup").textContent=c.new_suppliers.length?`موردين جدد راح ينضافون بدون هاتف: ${c.new_suppliers.join("، ")}`:"";
   $("#imp-mode").classList.toggle("hide",!c.exists);
   const ordered=[...rows.filter(r=>r.status==="error"),...rows.filter(r=>r.status!=="error")].slice(0,300);
-  $("#imp-body").innerHTML=ordered.map(r=>`<tr><td class="num">${r.row}</td><td><span class="code">${esc(r.code)}</span></td><td>${esc(r.name)}</td><td><span class="pill ${r.status==="new"?"ok":r.status==="exists"?"low":"out"}">${r.status==="new"?"جديدة":r.status==="exists"?"موجودة":"خطأ"}</span></td><td style="color:var(--out)">${esc(r.message)}</td></tr>`).join("")||`<tr><td colspan="5" class="empty">الملف فاضي. عبّي القالب من السطر 5</td></tr>`;
+  $("#imp-body").innerHTML=ordered.map(r=>`<tr><td class="num">${r.row}</td><td><span class="code">${esc(r.code)}</span></td><td>${esc(r.name)}</td><td><span class="pill ${r.status==="new"?"ok":r.status==="exists"?"low":r.status==="skip"?"none":"out"}">${r.status==="new"?"جديدة":r.status==="exists"?"موجودة":r.status==="skip"?"يتخطى":"خطأ"}</span></td><td style="color:${r.status==="skip"?"var(--muted)":"var(--out)"}">${esc(r.message)}</td></tr>`).join("")||`<tr><td colspan="5" class="empty">الملف فاضي. عبّي القالب من السطر 5</td></tr>`;
   $("#imp-go").disabled=!(c.new||c.exists);
   $("#imp-go").textContent=c.error?`استيراد الصحيح فقط (${fmt(c.new+c.exists)} سطر) وتخطي الأخطاء`:"استيراد";
 }
@@ -1188,7 +1188,7 @@ $("#imp-go").onclick=async()=>{
   if(!IMP)return;const b=$("#imp-go");b.disabled=true;
   try{const mode=(document.querySelector("input[name=impmode]:checked")||{}).value||"skip";
     const r=await api("/api/import_apply",{data:IMP.data,mode});$("#impmodal").classList.remove("open");
-    toast(`تم الاستيراد: ${r.added} جديدة${r.updated?` · ${r.updated} محدّثة`:""}${r.skipped?` · ${r.skipped} متخطاة`:""}${r.images?` · ${r.images} صورة`:""}${r.errors?` · ${r.errors} فيها أخطاء`:""}`);await load()}
+    toast(`تم الاستيراد: ${r.added} جديدة${r.updated?` · ${r.updated} محدّثة`:""}${r.skipped?` · ${r.skipped} متخطاة`:""}${r.images?` · ${r.images} صورة`:""}${r.nocode?` · ${r.nocode} بدون كود (تخطّت)`:""}${r.errors?` · ${r.errors} فيها أخطاء`:""}`);await load()}
   catch(e){toast(e.message,1)}finally{b.disabled=false}};
 $("#it-sort").onclick=async()=>{try{const r=await api("/api/sort_items",{});toast(`تم ترتيب ${r.n} مادة حسب التصنيف ثم الكود`);await load()}catch(e){toast(e.message,1)}};
 
