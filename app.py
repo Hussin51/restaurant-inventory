@@ -11,7 +11,7 @@ import clothes
 import updater
 from urllib.parse import urlparse, parse_qs, quote, unquote
 
-VERSION = "1.10.0"
+VERSION = "1.10.1"
 BASE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 LOCK = threading.Lock()
 PENDING = False
@@ -24,6 +24,15 @@ DATA = None
 IMG_DIR = None
 EXT = {"image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif"}
 MAX_IMG = 8 * 1024 * 1024
+
+
+def ulog(msg):
+    """سطر بسجل التحديث (للتشخيص إذا التحديث ما كمل): مجلد البيانات\\update.log"""
+    try:
+        with open(os.path.join(DATA.dir, "update.log"), "a", encoding="utf8") as f:
+            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {msg}\n")
+    except Exception:
+        pass
 
 
 def to_json(o):
@@ -230,7 +239,9 @@ class H(BaseHTTPRequestHandler):
                     raise ValueError("ما كدرت أتصل بموقع التحديث، تأكد من الإنترنت وجرّب مرة ثانية")
                 with LOCK:
                     DATA.make_backup("before-update")
-                updater.launch(path)
+                ulog(f"update {VERSION} -> {info['version']}: installer {path}")
+                updater.launch(path, os.path.join(DATA.dir, "update-install.log"))
+                ulog("installer started; app will close")
                 res["ok"] = True
                 threading.Timer(2.0, shutdown).start()
             elif p == "/api/invoice":

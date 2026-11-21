@@ -76,9 +76,19 @@ def download_installer(info=None, timeout=120, retries=2, wait=6):
     raise ValueError("بصمة الملف المنزَّل ما تطابق (ممكن النسخة الجديدة لسه تنرفع). انتظر دقيقتين وجرّب مرة ثانية، أو نزّل المثبّت من صفحة الإصدارات")
 
 
-def launch(path):
-    """يشغّل المثبّت بصمت (يغلق البرنامج القديم ويعيد تشغيل الجديد)."""
+def _clean_env():
+    """بيئة نظيفة للمثبّت: متغيرات PyInstaller الموروثة من البرنامج القديم تخلي النسخة الجديدة ما تفتح (تدوّر على مجلد مؤقت انحذف)."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith("_PYI") and k not in ("_MEIPASS2",)}
+    env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+    return env
+
+
+def launch(path, log_path=None):
+    """يشغّل المثبّت بصمت (يغلق البرنامج القديم ويعيد تشغيل الجديد). log_path: ملف سجل التثبيت للتشخيص."""
     if os.name != "nt":
         raise ValueError("التحديث التلقائي يشتغل على Windows فقط")
     flags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-    subprocess.Popen([path, "/SILENT", "/CLOSEAPPLICATIONS", "/NORESTART", "/SUPPRESSMSGBOXES", "/RELAUNCH=1"], creationflags=flags, close_fds=True)
+    args = [path, "/SILENT", "/CLOSEAPPLICATIONS", "/NORESTART", "/SUPPRESSMSGBOXES", "/RELAUNCH=1"]
+    if log_path:
+        args.append(f"/LOG={log_path}")
+    subprocess.Popen(args, creationflags=flags, close_fds=True, env=_clean_env())

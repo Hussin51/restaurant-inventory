@@ -93,6 +93,17 @@ class UpdaterTests(unittest.TestCase):
         self.assertEqual(open(p, "rb").read(), H.exe)
         self.assertEqual(H.hits, 2)
 
+    def test_installer_gets_a_clean_pyinstaller_environment(self):
+        os.environ["_PYI_APPLICATION_HOME_DIR"] = "C:/old/_MEI123"
+        os.environ["_MEIPASS2"] = "C:/old/_MEI123"
+        try:
+            env = updater._clean_env()
+        finally:
+            os.environ.pop("_PYI_APPLICATION_HOME_DIR", None)
+            os.environ.pop("_MEIPASS2", None)
+        self.assertFalse(any(k.startswith("_PYI") or k == "_MEIPASS2" for k in env))
+        self.assertEqual(env["PYINSTALLER_RESET_ENVIRONMENT"], "1")
+
 
 if __name__ == "__main__":
     unittest.main()

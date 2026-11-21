@@ -922,13 +922,23 @@ async function saveClIssue(print){
 $("#cl-save").onclick=()=>saveClIssue(true);$("#cl-save2").onclick=()=>saveClIssue(false);
 
 /* التحديث التلقائي */
+function updWait(box){
+  const old=D.version,t0=Date.now();let down=false;
+  box.innerHTML="<span>جاري التثبيت... البرنامج راح ينغلق ويفتح من جديد (حوالي دقيقة). لا تسكّر هذي النافذة.</span>";
+  const iv=setInterval(async()=>{
+    try{const r=await fetch("/api/ping",{cache:"no-store"}),j=await r.json();
+      if(down||(j.version&&j.version!==old)){clearInterval(iv);location.reload();return}}
+    catch(e){down=true}
+    if(Date.now()-t0>150000){clearInterval(iv);
+      box.innerHTML=`<span>التحديث أخذ وقت أكثر من المعتاد. <b>سكّر هذي النافذة وافتح البرنامج من اختصار سطح المكتب</b>: غالباً تحدّث لحاله. إذا طلعت نسخة قديمة، نزّل المثبّت وثبّته فوقه (بياناتك ما تنمسح): <a href="https://github.com/Hussin51/restaurant-inventory/releases/download/inventory-latest/RestaurantInventory-Setup.exe" target="_blank" style="color:inherit;font-weight:700">رابط التثبيت</a></span>`}
+  },2000)}
 async function checkUpdate(){
   try{const u=await api("/api/update_check");if(!u.available)return;
     const box=$("#upd");box.classList.remove("hide");
     box.innerHTML=`<span>يتوفر تحديث جديد <b>${esc(u.latest)}</b> (نسختك ${esc(u.current)}). بياناتك ما تتأثر وتنحفظ لها نسخة احتياطية قبل التحديث.</span><span style="display:flex;gap:8px"><button class="save" id="upd-go" style="margin:0;padding:8px 18px">حدّث الآن</button><button class="ghost" id="upd-x" style="padding:8px 14px">لاحقاً</button></span>`;
     $("#upd-x").onclick=()=>box.classList.add("hide");
     $("#upd-go").onclick=async()=>{const b=$("#upd-go");b.disabled=true;b.textContent="جاري التنزيل...";
-      try{await api("/api/update_install",{});box.innerHTML="<span>جاري التحديث، البرنامج راح ينغلق ويفتح من جديد خلال ثواني...</span>"}
+      try{await api("/api/update_install",{});updWait(box)}
       catch(e){toast(e.message,1);b.disabled=false;b.textContent="حدّث الآن"}}
   }catch(e){}}
 
