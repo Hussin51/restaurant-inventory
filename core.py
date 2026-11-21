@@ -213,8 +213,8 @@ class Store:
             sw["C4"].font, sw["C4"].fill, sw["C4"].border, sw["C4"].alignment = _HDR_FONT, _HDR_FILL, _BD, _CTR
             sw.column_dimensions["C"].width = 16
         if INV_SHEET not in wb.sheetnames:
-            _make_sheet(wb, INV_SHEET, "الفواتير", ["رقم الفاتورة", "التاريخ", "النوع", "الجهة", "من قسم", "إلى قسم", "ملاحظات", "عدد البنود", "الإجمالي", "تاريخ الاسترجاع", "العملة", "سعر الصرف", "الإجمالي بالدينار"],
-                        [16, 14, 12, 26, 14, 14, 30, 12, 16, 16, 12, 12, 18])
+            _make_sheet(wb, INV_SHEET, "الفواتير", ["رقم الفاتورة", "التاريخ", "النوع", "الجهة", "من قسم", "إلى قسم", "ملاحظات", "عدد البنود", "الإجمالي", "تاريخ الاسترجاع", "العملة", "سعر الصرف", "الإجمالي بالدينار", "الخصم"],
+                        [16, 14, 12, 26, 14, 14, 30, 12, 16, 16, 12, 12, 18, 12])
         if LINES_SHEET not in wb.sheetnames:
             _make_sheet(wb, LINES_SHEET, "بنود الفواتير", ["رقم الفاتورة", "الكود", "الصنف", "الكمية (قطعة)", "سعر القطعة", "المجموع", "الوحدة", "العدد", "سعر الوحدة"], [16, 12, 28, 14, 14, 16, 12, 10, 14])
         hs = wb[INV_SHEET]
@@ -277,10 +277,14 @@ class Store:
         clothes.ensure_schema(wb)
         hv = wb[INV_SHEET]
         if hv["K4"].value != "العملة":
-            for col, hd, w in ((11, "العملة", 12), (12, "سعر الصرف", 12), (13, "الإجمالي بالدينار", 18)):
+            for col, hd, w in ((11, "العملة", 12), (12, "سعر الصرف", 12), (13, "الإجمالي بالدينار", 18), (14, "الخصم", 12)):
                 c = hv.cell(4, col, hd)
                 c.font, c.fill, c.border, c.alignment = _HDR_FONT, _HDR_FILL, _BD, _CTR
                 hv.column_dimensions[c.column_letter].width = w
+        if hv["N4"].value != "الخصم":
+            c = hv.cell(4, 14, "الخصم")
+            c.font, c.fill, c.border, c.alignment = _HDR_FONT, _HDR_FILL, _BD, _CTR
+            hv.column_dimensions["N"].width = 12
 
     # ---------- الإعدادات ----------
     @staticmethod
@@ -392,10 +396,15 @@ class Store:
             for l in ln:
                 l["total"] = l["qty"] * l["price"]
                 l["total_iqd"] = l["total"] * rate
+            gross = sum(l["total"] for l in ln)
+            disc = min(_num(hs.cell(r, 14).value), gross) if cur is not None else 0.0
+            ratio = (gross - disc) / gross if gross else 1.0
+            for l in ln:                                          # الخصم موزّع على البنود بالنسبة (للتقارير حسب المادة)
+                l["net"], l["net_iqd"] = l["total"] * ratio, l["total_iqd"] * ratio
             out.append(dict(no=no, date=_d(hs.cell(r, 2).value), type=_s(hs.cell(r, 3).value), party=_s(hs.cell(r, 4).value),
                             frm=_s(hs.cell(r, 5).value), to=_s(hs.cell(r, 6).value), note=_s(hs.cell(r, 7).value),
-                            due=_d(hs.cell(r, 10).value), cur=cur, rate=rate, lines=ln, total=sum(l["total"] for l in ln),
-                            total_iqd=sum(l["total"] for l in ln) * rate))
+                            due=_d(hs.cell(r, 10).value), cur=cur, rate=rate, lines=ln, gross=gross, gross_iqd=gross * rate,
+                            discount=disc, total=gross - disc, total_iqd=(gross - disc) * rate))
             r += 1
         return out
 
@@ -541,6 +550,19 @@ class Store:
         wb[ITEMS_SHEET].cell(r, 13, filename or None)
         self._save(wb)
 
+    def set_images(self, mapping):
+        """يحدد صور عدة مواد دفعة وحدة (حفظ واحد): {code: filename}. المواد المجهولة تنتخطى."""
+        wb = self._open()
+        n = 0
+        for code, fn in mapping.items():
+            r = self._item_row(wb, code=code)
+            if r is not None:
+                wb[ITEMS_SHEET].cell(r, 13, fn or None)
+                n += 1
+        if n:
+            self._save(wb)
+        return n
+
     # ---------- الموردين ----------
     def add_supplier(self, name, phone, currency=""):
         name = _t(name)
@@ -639,17 +661,21 @@ class Store:
                     pass
             r += 1
         no = f"{pre}-{mx + 1:04d}"
+        disc = _pos(inv.get("discount"), "الخصم") if typ == "شراء" else 0
+        if disc and disc > sum(l[3] * l[4] for l in lines) + 1e-9:
+            raise ValueError("الخصم أكبر من إجمالي الفاتورة")
         hr = r
         for c, v in ((1, no), (2, d), (3, typ), (4, party), (5, frm), (6, to), (7, note), (10, due),
                      (11, cur if typ == "شراء" else None), (12, rate if typ == "شراء" else None)):
             hs.cell(hr, c, v if v not in ("", None) else None)
-        hs.cell(hr, 13, f'=I{hr}*IF(K{hr}="{CUR_USD}",L{hr},1)').number_format = "#,##0"
+        hs.cell(hr, 14, disc or None).number_format = "#,##0.00"
+        hs.cell(hr, 13, f'=(I{hr}-N{hr})*IF(K{hr}="{CUR_USD}",L{hr},1)').number_format = "#,##0"
         hs.cell(hr, 2).number_format = "yyyy-mm-dd"
         hs.cell(hr, 10).number_format = "yyyy-mm-dd"
         rng = f"'{LINES_SHEET}'!$A$5:$A$50000"
         hs.cell(hr, 8, f"=COUNTIF({rng},A{hr})")
         hs.cell(hr, 9, f"=SUMIFS('{LINES_SHEET}'!$F$5:$F$50000,{rng},A{hr})").number_format = "#,##0"
-        _style_row(hs, hr, 13, formula_cols=(8, 9, 13))
+        _style_row(hs, hr, 14, formula_cols=(8, 9, 13))
         lr = _first_empty(ls, 1, R0)
         for row, code, name, q, price, unit, cnt, up in lines:
             ls.cell(lr, 1, no); ls.cell(lr, 2, code); ls.cell(lr, 3, name); ls.cell(lr, 4, q)
@@ -895,7 +921,7 @@ class Store:
         hs, ls = wb[INV_SHEET], wb[LINES_SHEET]
         heads, r = [], R0
         while hs.cell(r, 1).value not in (None, ""):
-            heads.append([hs.cell(r, c).value for c in (1, 2, 3, 4, 5, 6, 7, 10, 11, 12)])
+            heads.append([hs.cell(r, c).value for c in (1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 14)])
             r += 1
         if no not in [_s(h[0]) for h in heads]:
             raise ValueError("الفاتورة غير موجودة")
@@ -903,14 +929,14 @@ class Store:
         for i in range(len(heads)):
             rr = R0 + i
             if i < len(kept):
-                for c, x in zip((1, 2, 3, 4, 5, 6, 7, 10, 11, 12), kept[i]):
+                for c, x in zip((1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 14), kept[i]):
                     hs.cell(rr, c).value = x
                 hs.cell(rr, 8).value = f"=COUNTIF('{LINES_SHEET}'!$A$5:$A$50000,A{rr})"
                 hs.cell(rr, 9).value = f"=SUMIFS('{LINES_SHEET}'!$F$5:$F$50000,'{LINES_SHEET}'!$A$5:$A$50000,A{rr})"
-                hs.cell(rr, 13).value = f'=I{rr}*IF(K{rr}="{CUR_USD}",L{rr},1)'
+                hs.cell(rr, 13).value = f'=(I{rr}-N{rr})*IF(K{rr}="{CUR_USD}",L{rr},1)'
                 hs.cell(rr, 2).number_format = hs.cell(rr, 10).number_format = "yyyy-mm-dd"
             else:
-                for c in range(1, 14):
+                for c in range(1, 15):
                     hs.cell(rr, c).value = None
         lines, r = [], R0
         while ls.cell(r, 1).value not in (None, ""):

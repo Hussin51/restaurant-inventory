@@ -18,7 +18,7 @@ jobs:
       - name: Tests
         run: python -m unittest discover -s tests -v
       - name: Build exe
-        run: pyinstaller --onefile --windowed --name RestaurantInventory --icon installer\logo.ico --add-data "web;web" --add-data "assets;assets" --add-data "template.xlsx;." app.py
+        run: pyinstaller --onefile --windowed --name RestaurantInventory --icon installer\logo.ico --add-data "web;web" --add-data "assets;assets" --add-data "template.xlsx;." --collect-all pdfplumber --collect-all pdfminer --collect-all pypdfium2 --hidden-import pdfimport app.py
       - name: Smoke test the exe (starts, creates data, saves)
         shell: pwsh
         run: |
@@ -35,6 +35,9 @@ jobs:
           if ($page.Content -notmatch 'lang="ar"') { throw "web page missing from exe" }
           $item = '{"code":"T-1","name":"smoke","cat":"","carton":12,"shad":0,"price":100,"opening":24,"min":5}'
           Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8799/api/item" -Headers @{"X-Requested-With"="jard"} -Body ([Text.Encoding]::UTF8.GetBytes($item)) -ContentType "application/json" | Out-Null
+          $pdf = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $PWD "tests\data\offer_text.pdf")))
+          $pv = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8799/api/inv_import_preview" -Headers @{"X-Requested-With"="jard"} -Body (@{ data = $pdf } | ConvertTo-Json) -ContentType "application/json"
+          if (@($pv.lines).Count -ne 2 -or $pv.discount -ne 10) { throw "PDF import failed inside the exe (pdfplumber missing?)" }
           $evil = $null
           try { Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8799/api/item_delete" -Body '{"code":"T-1"}' -ContentType "text/plain" | Out-Null } catch { $evil = $_.Exception.Response.StatusCode.value__ }
           if ($evil -ne 403) { throw "cross-site style POST was not blocked" }

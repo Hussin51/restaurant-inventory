@@ -11,7 +11,7 @@ import clothes
 import updater
 from urllib.parse import urlparse, parse_qs, quote, unquote
 
-VERSION = "1.9.11"
+VERSION = "1.10.0"
 BASE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 LOCK = threading.Lock()
 PENDING = False
@@ -298,7 +298,7 @@ class H(BaseHTTPRequestHandler):
                         res.update(STORE.import_items(parsed["rows"], b.get("mode", "skip")))
                         res["errors"] = parsed["counts"]["error"]
                         res["nocode"] = parsed["counts"]["skip"]
-                        imgs, n_img = importer.extract_images(raw), 0
+                        imgs, n_img, mp = importer.extract_images(raw), 0, {}
                         have = {i["code"].casefold(): i.get("image") for i in STORE.items()}
                         for x in parsed["rows"]:
                             if x["status"] in ("error", "skip") or x["row"] not in imgs:
@@ -308,10 +308,11 @@ class H(BaseHTTPRequestHandler):
                                 continue                                   # الموجود: صورة جديدة فقط بوضع التحديث وإذا ما عنده صورة
                             try:
                                 data_i, ctype = imgs[x["row"]]
-                                STORE.set_image(x["code"], save_image(x["code"], data_i, ctype))
-                                n_img += 1
+                                mp[x["code"]] = save_image(x["code"], data_i, ctype)
                             except Exception:
                                 pass
+                        if mp:
+                            n_img = STORE.set_images(mp)
                         res["images"] = n_img
             elif p in ("/api/inv_import_preview", "/api/inv_import_apply"):
                 raw = base64.b64decode((b.get("data") or "").split(",")[-1] or b"")
@@ -347,17 +348,19 @@ class H(BaseHTTPRequestHandler):
                                              has=dict(currency=True, price=True, min=False, carton=False, shad=False, usage=False, supplier=True, category=False)))
                         if rows:
                             STORE.import_items(rows, "skip")
-                            imgs, rows_idx = importer.extract_images(raw), [x["row"] for x in order]
+                            imgs, rows_idx, mp = importer.extract_images(raw, "invoice"), [x["row"] for x in order], {}
                             for x in new:
                                 nxt = next((r for r in rows_idx if r > x["row"]), 10**9)
                                 k = next((r for r in sorted(imgs) if x["row"] <= r < nxt), None)
                                 if k is not None:
                                     try:
-                                        STORE.set_image(x["code"], save_image(x["code"], imgs[k][0], imgs[k][1]))
+                                        mp[x["code"]] = save_image(x["code"], imgs[k][0], imgs[k][1])
                                     except Exception:
                                         pass
+                            if mp:
+                                STORE.set_images(mp)
                         res["no"] = STORE.add_invoice(dict(type="شراء", party=sup, currency=cur, date=b.get("date"), note=b.get("note", ""),
-                                                           update_prices=bool(b.get("update_prices", True)),
+                                                           update_prices=bool(b.get("update_prices", True)), discount=b.get("discount") or 0,
                                                            lines=[dict(code=x["code"], unit=x["unit"], qty=x["qty"], price=x["price"]) for x in lines]))
                         res.update(created=len(new), lines=len(lines), skipped=parsed["counts"]["error"])
             elif p == "/api/items_delete":

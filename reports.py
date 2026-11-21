@@ -85,8 +85,8 @@ def movement(data, a="", b=""):
         for l in v["lines"]:
             x = by_item.setdefault(l["code"], [l["name"], 0.0, 0.0, 0.0])
             x[1] += l["qty"]
-            x[2] += l["total_iqd"]
-            x[3] += l["total"] if usd else 0
+            x[2] += l.get("net_iqd", l["total_iqd"])
+            x[3] += l.get("net", l["total"]) if usd else 0
     total_buy = sum(v["total_iqd"] for v in inv)
     usd_buy = sum(v["total"] for v in inv if v["cur"] == "دولار")
 
@@ -191,12 +191,12 @@ def supplier_statement(data, name, a="", b=""):
             usd += v["total"]
         else:
             iqd += v["total"]
-        rows.append([v["no"], _iso(v["date"]), len(v["lines"]), v["cur"], v["total"], v["total_iqd"], run, v["note"] or ""])
+        rows.append([v["no"], _iso(v["date"]), len(v["lines"]), v["cur"], v["total"], v["total_iqd"], run, v["note"] or "", v.get("discount", 0.0)])
         for l in v["lines"]:
             x = by_item.setdefault((l["code"], v["cur"]), dict(name=l["name"], qty=0.0, own=0.0, iqd=0.0, price=0.0, last=""))
             x["qty"] += l["qty"]
-            x["own"] += l.get("total", 0.0)
-            x["iqd"] += l["total_iqd"]
+            x["own"] += l.get("net", l.get("total", 0.0))
+            x["iqd"] += l.get("net_iqd", l["total_iqd"])
             if _iso(v["date"]) >= x["last"]:
                 x["last"], x["price"] = _iso(v["date"]), l.get("price", 0.0)
     pref = sup.get("currency") or "دينار"
@@ -210,7 +210,7 @@ def supplier_statement(data, name, a="", b=""):
                   {"label": "عدد المواد المشتراة", "value": len({k[0] for k in by_item})}],
         "tables": [
             _table("شنو اشتريت من هذا المورد", ["الكود", "المادة", "الكمية", "آخر سعر للقطعة", "العملة", "الإجمالي (بعملتها)", "بالدينار"], item_rows, (3, 5, 6)),
-            _table("الفواتير", ["رقم الفاتورة", "التاريخ", "عدد المواد", "العملة", "الإجمالي (بعملتها)", "بالدينار", "المجموع التراكمي (دينار)", "ملاحظات"], rows, (2, 4, 5, 6)),
+            _table("الفواتير", ["رقم الفاتورة", "التاريخ", "عدد المواد", "العملة", "الصافي بعد الخصم (بعملتها)", "بالدينار", "المجموع التراكمي (دينار)", "ملاحظات", "الخصم (بعملتها)"], rows, (2, 4, 5, 6, 8)),
         ],
         "note": "الكشف يعرض المشتريات فقط. المدفوعات غير مسجلة بالبرنامج. فواتير الدولار تتحول للدينار بسعر الصرف وقت الفاتورة. الأسعار والإجماليات «بعملتها» هي بعملة الفاتورة الأصلية.",
     }

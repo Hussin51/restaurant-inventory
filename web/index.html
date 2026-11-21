@@ -321,7 +321,7 @@ tbody tr:hover td{background:var(--soft)}
     <div class="seg" data-seg="mv"></div>
     <div class="card pad">
       <div class="types t4 hide" id="itypes"></div>
-      <div class="impbar hide" id="i-imp"><span>فاتورة المورد وصلتك إكسل؟ استوردها بدل ما تكتبها سطر سطر.</span><span style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="ghost" id="i-imp-btn">استيراد فاتورة من إكسل</button><a class="ghost" href="/api/invoice_template" style="text-decoration:none">قالب فاتورة</a></span><input type="file" id="i-imp-file" accept=".xlsx,.xlsm" class="hide"></div>
+      <div class="impbar hide" id="i-imp"><span>فاتورة المورد وصلتك إكسل أو PDF؟ استوردها بدل ما تكتبها سطر سطر.</span><span style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="ghost" id="i-imp-btn">استيراد فاتورة (إكسل أو PDF)</button><a class="ghost" href="/api/invoice_template" style="text-decoration:none">قالب فاتورة</a></span><input type="file" id="i-imp-file" accept=".xlsx,.xlsm,.pdf" class="hide"></div>
       <div id="ihead"></div>
       <h2 style="margin-top:26px">المواد</h2>
       <div class="tw" style="overflow:visible"><table class="lines"><thead><tr><th style="width:44px">#</th><th>المادة</th><th style="width:110px">الكمية</th><th style="width:104px">الوحدة</th><th class="pc" id="th-price" style="width:140px">سعر الوحدة</th><th class="pc" id="th-total" style="width:130px">المجموع</th><th style="width:44px"></th></tr></thead><tbody id="ilines"></tbody></table></div>
@@ -344,7 +344,7 @@ tbody tr:hover td{background:var(--soft)}
 
   <!-- الجرد -->
   <section id="v-items" class="hide">
-    <div class="tools"><input id="isearch" placeholder="ابحث بالاسم أو الكود..."><div class="chips" id="cats"></div><div class="chips" data-stf></div><div style="margin-inline-start:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><div class="seg" id="it-view" style="margin:0"><button type="button" data-v="table">جدول</button><button type="button" data-v="gallery">معرض صور</button></div><details class="moremenu" id="it-more"><summary>المزيد</summary><div class="mm"><button id="it-print">طباعة</button><button id="it-sort" title="يرتّب المواد حسب التصنيف ثم الكود">ترتيب حسب التصنيف</button><a href="/api/items_template">تحميل قالب إكسل</a></div></details><button class="primary" id="it-import">استيراد من إكسل</button></div></div>
+    <div class="tools"><input id="isearch" placeholder="ابحث بالاسم أو الكود..."><div class="chips" id="cats"></div><div class="chips" data-stf></div><div style="margin-inline-start:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><div class="seg" id="it-view" style="margin:0"><button type="button" data-v="table">جدول</button><button type="button" data-v="gallery">معرض صور</button></div><details class="moremenu" id="it-more"><summary>المزيد</summary><div class="mm"><button id="it-print">طباعة</button><button id="it-sort" title="يرتّب المواد حسب التصنيف ثم الكود">ترتيب حسب التصنيف</button><a href="/api/items_template">تحميل قالب إكسل</a></div></details><button class="primary" id="it-import">استيراد (إكسل أو PDF)</button></div></div>
     <div class="bulk hide" id="it-bulk"><span id="it-bulk-n"></span><span style="display:flex;gap:8px"><button class="danger" id="it-bulk-del">حذف المحدد</button><button class="ghost" id="it-bulk-x">إلغاء التحديد</button></span></div>
     <div class="gallery hide" id="it-gallery"></div>
     <div class="card tw" id="it-tablecard"><table><thead><tr><th style="width:38px"><input type="checkbox" id="it-all" title="تحديد كل المعروض"></th><th style="width:64px"></th><th>الكود</th><th>المادة</th><th>التصنيف</th><th class="num">المتبقي بالمخزن</th><th class="num">الحد الأدنى</th><th>الحالة</th><th class="num">سعر الوحدة</th><th class="num">القيمة</th></tr></thead><tbody id="itbody"></tbody></table></div>
@@ -481,7 +481,7 @@ tbody tr:hover td{background:var(--soft)}
   <div id="imp-step1">
     <div class="hint" style="margin-top:0;font-size:14px;line-height:1.9">1) نزّل القالب وعبّيه بالمواد (كود، اسم، استخدام، التعبئة، الأسعار، والموجود بالكارتون والقطع).<br>2) اختار الملف هنا. البرنامج يفحصه ويوريك شنو راح ينضاف وشنو فيه أخطاء، وما يستورد شي لحد ما تأكد.<br>3) بعد الاستيراد تترتب المواد حسب التصنيف والكود.</div>
     <div class="stack"><a class="ghost" href="/api/items_template" style="text-align:center;text-decoration:none">تنزيل القالب الكامل (إكسل)</a><a class="ghost" href="/api/items_template?kind=phone" style="text-align:center;text-decoration:none">تنزيل قالب مبسّط للموبايل</a><button class="primary" id="imp-pick">اختيار ملف إكسل</button></div>
-    <input type="file" id="imp-file" accept=".xlsx" class="hide">
+    <input type="file" id="imp-file" accept=".xlsx,.pdf" class="hide">
   </div>
   <div id="imp-step2" class="hide">
     <div class="rcards" id="imp-cards" style="margin:0 0 10px"></div>
@@ -529,7 +529,7 @@ tbody tr:hover td{background:var(--soft)}
 <div class="modal" id="ipmodal"><div class="card dlg wide">
   <h2>استيراد فاتورة شراء من إكسل</h2>
   <div class="row3"><div><label style="margin-top:0">المورد</label><select id="ip-sup"></select></div><div><label style="margin-top:0">التاريخ</label><input id="ip-date" type="date"></div><div><label style="margin-top:0">عملة الفاتورة</label><select id="ip-cur"><option>دينار</option><option>دولار</option></select></div></div>
-  <label>ملاحظات</label><input id="ip-note" placeholder="اختياري (مثلاً رقم فاتورة المورد)">
+  <div class="row"><div><label>الخصم على الفاتورة</label><input id="ip-disc" type="number" min="0" step="any" placeholder="0"></div><div><label>ملاحظات</label><input id="ip-note" placeholder="اختياري (مثلاً رقم فاتورة المورد)"></div></div>
   <div class="hint" id="ip-sum" style="margin:12px 0 6px;font-size:14px"></div>
   <div class="tw" style="max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:12px"><table><thead><tr><th>#</th><th>الكود</th><th>المادة</th><th class="num">الكمية</th><th class="num">السعر</th><th>الحالة</th></tr></thead><tbody id="ip-body"></tbody></table></div>
   <label style="display:flex;gap:8px;align-items:center;font-weight:600;margin-top:14px"><input type="checkbox" id="ip-create" checked> أنشئ المواد الجديدة تلقائياً (بالاسم والسعر والصورة اللي بالملف)</label>
@@ -729,7 +729,7 @@ let INV;
 const addDays=(d,n)=>{const x=new Date(d+"T12:00:00");x.setDate(x.getDate()+n);return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-${String(x.getDate()).padStart(2,"0")}`};
 function invReset(type){
   const prev=INV?INV.h:{};
-  INV={type:type||"شراء",upd:true,lines:[{}],h:{date:prev.date||today(),party:"",frm:"",to:"",due:"",note:"",cur:prev.cur||"دينار"}};
+  INV={type:type||"شراء",upd:true,lines:[{}],h:{date:prev.date||today(),party:"",frm:"",to:"",due:"",note:"",disc:"",cur:prev.cur||"دينار"}};
   if(INV.type==="إرجاع")INV.h.frm=D.depts[0]||"";
   if(INV.type==="إعارة"){INV.h.to=D.depts[0]||"";INV.h.due=addDays(INV.h.date,7)}
   if(INV.type==="نقل")INV.h.to=D.depts[0]||"";
@@ -748,10 +748,13 @@ function renderInvForm(){
   else f=`${fixed("من")}<div><label>إلى قسم</label>${deptSel("i-to",h.to)}</div>`;
   $("#ihead").innerHTML=`<div class="row3" style="margin-top:6px"><div><label>رقم الفاتورة</label><input value="تلقائي بعد الحفظ" readonly></div><div><label>التاريخ</label><input id="i-date" type="date" value="${esc(h.date)}"></div>${t==="شراء"?`<div><label>عملة الفاتورة</label><select id="i-cur"><option ${h.cur!=="دولار"?"selected":""}>دينار</option><option ${h.cur==="دولار"?"selected":""}>دولار</option></select><div class="hint" style="margin-top:4px">1 دولار = ${fmt(RATE())} دينار (من الإعدادات)</div></div>`:"<div></div>"}</div>
    <div class="${t==="إعارة"?"row3":"row"}" style="margin-top:0">${f}</div>
+   ${t==="شراء"?`<div class="row" style="margin-top:0"><div><label>الخصم على الفاتورة (${esc(h.cur)})</label><input id="i-disc" type="number" min="0" step="any" value="${esc(h.disc||"")}" placeholder="0"></div><div><label>أو نسبة خصم %</label><input id="i-discp" type="number" min="0" max="100" step="any" placeholder="0"></div></div>`:""}
    <label>ملاحظات</label><input id="i-note" value="${esc(h.note)}" placeholder="اختياري">
    ${t==="شراء"?`<label style="display:flex;gap:8px;align-items:center;margin-top:14px;cursor:pointer;color:var(--ink)"><input type="checkbox" id="i-upd" ${INV.upd?"checked":""} style="width:auto"> تحديث سعر المادة بآخر سعر شراء</label>`:""}`;
   ["date","party","frm","to","due","note","cur"].forEach(k=>{const el=$("#i-"+k);if(el)el.oninput=el.onchange=()=>{INV.h[k]=el.value;if(k==="party"&&INV.type==="شراء"){const sp=D.suppliers.find(x=>x.name===el.value);if(sp&&sp.currency&&sp.currency!==INV.h.cur){INV.h.cur=sp.currency;if($("#i-cur"))$("#i-cur").value=sp.currency;INV.lines.forEach(l=>{const it=l.code&&byCode(l.code);if(it&&!l.pT)l.price=rnd(convPrice(it,INV.h.cur)*factor(it,l.unit))});renderLines()}}if(k==="cur"){INV.lines.forEach(l=>{const it=l.code&&byCode(l.code);if(it&&!l.pT)l.price=rnd(convPrice(it,INV.h.cur)*factor(it,l.unit))});renderLines()}}});
   if($("#i-upd"))$("#i-upd").onchange=e=>INV.upd=e.target.checked;
+  if($("#i-disc")){$("#i-disc").oninput=e=>{INV.h.disc=e.target.value;$("#i-discp").value="";invSum()};
+    $("#i-discp").oninput=e=>{const g=INV.lines.reduce((a,l)=>a+(+l.qty||0)*(+l.price||0),0),v=Math.round(g*Math.min(100,+e.target.value||0))/100;INV.h.disc=v?String(v):"";$("#i-disc").value=INV.h.disc;invSum()}}
   if($("#i-addsup"))$("#i-addsup").onclick=()=>openSup(null,n=>{INV.h.party=n;const sp=D.suppliers.find(x=>x.name===n);if(sp&&sp.currency)INV.h.cur=sp.currency;renderInvForm()});
   document.querySelectorAll(".pc").forEach(e=>e.classList.toggle("hide",t!=="شراء"));
   $("#i-imp").classList.toggle("hide",t!=="شراء");
@@ -783,8 +786,9 @@ function renderLines(){
 }
 function invSum(){
   const buy=INV.type==="شراء";let q=0,t=0;
+  const dsc=buy?Math.min(+INV.h.disc||0,1e15):0;
   INV.lines.forEach((l,i)=>{q+=(+l.qty||0)*lineF(l);t+=(+l.qty||0)*(+l.price||0);const c=$("#ilines").querySelector(`tr[data-i="${i}"] .tot`);if(c)c.textContent=fmt((+l.qty||0)*(+l.price||0))});
-  $("#isum").innerHTML=`<span>عدد المواد: <b>${INV.lines.filter(l=>l.code).length}</b></span><span>مجموع القطع: <b>${fmt(q)}</b></span>${buy?`<span>إجمالي الفاتورة: <b>${fmt(t)} ${esc(INV.h.cur)}</b>${INV.h.cur==="دولار"?` <span class="sub">≈ ${fmt(t*RATE())} دينار</span>`:""}</span>`:""}`}
+  $("#isum").innerHTML=`<span>عدد المواد: <b>${INV.lines.filter(l=>l.code).length}</b></span><span>مجموع القطع: <b>${fmt(q)}</b></span>${buy?`<span>${dsc>0?"الإجمالي":"إجمالي الفاتورة"}: <b>${fmt(t)} ${esc(INV.h.cur)}</b></span>${dsc>0?`<span>الخصم: <b style="color:var(--out)">−${fmt(dsc)}</b></span><span>الصافي: <b>${fmt(t-dsc)} ${esc(INV.h.cur)}</b>${INV.h.cur==="دولار"?` <span class="sub">≈ ${fmt((t-dsc)*RATE())} دينار</span>`:""}</span>`:INV.h.cur==="دولار"?`<span class="sub">≈ ${fmt(t*RATE())} دينار</span>`:""}`:""}`}
 $("#ilines").addEventListener("input",e=>{const tr=e.target.closest("tr");if(!tr)return;const l=INV.lines[+tr.dataset.i];
   if(e.target.classList.contains("q")){l.qty=e.target.value;const it=byCode(l.code);if(it){const sub=tr.querySelector(".sub");if(sub)renderLinesSoft(tr,l,it)}}
   else if(e.target.classList.contains("p")){l.price=e.target.value;l.pT=true}else return;invSum()});
@@ -801,7 +805,7 @@ async function saveInvoice(print){
     const bad=Object.keys(sum).filter(c=>sum[c]>(byCode(c)?.balance??0));
     if(bad.length&&!confirm("كميات أكبر من الرصيد: "+bad.map(c=>byCode(c)?.name).join("، ")+". تكمل؟"))return}
   const h=INV.h;if(INV.type==="إعارة"&&!h.due)return toast("حدد تاريخ الاسترجاع",1);[$("#isave"),$("#iprint")].forEach(b=>b.disabled=true);
-  try{const r=await api("/api/invoice",{type:INV.type,date:h.date,party:h.party,frm:h.frm,to:h.to,note:h.note,update_prices:INV.upd,due:h.due,currency:h.cur,lines:ls.map(l=>({code:l.code,unit:l.unit||"قطعة",qty:+l.qty,price:+l.price||0}))});
+  try{const r=await api("/api/invoice",{type:INV.type,date:h.date,party:h.party,frm:h.frm,to:h.to,note:h.note,update_prices:INV.upd,due:h.due,currency:h.cur,discount:INV.type==="شراء"?(+h.disc||0):0,lines:ls.map(l=>({code:l.code,unit:l.unit||"قطعة",qty:+l.qty,price:+l.price||0}))});
     toast("تم حفظ الفاتورة "+r.no);invReset(INV.type);await load();if(print)showInvoice(r.no,true)}
   catch(e){toast(e.message,1)}finally{[$("#isave"),$("#iprint")].forEach(b=>b.disabled=false)}}
 $("#isave").onclick=()=>saveInvoice(false);$("#iprint").onclick=()=>saveInvoice(true);
@@ -813,7 +817,7 @@ function renderInvoices(){
   $("#vtypes").innerHTML=ts.map(t=>`<button class="chip ${t===vt?'on':''}" data-t="${esc(t)}">${esc(t)}</button>`).join("");
   document.querySelectorAll("#vtypes .chip").forEach(b=>b.onclick=()=>{vt=b.dataset.t;renderInvoices()});
   const rows=[...D.invoices].reverse().filter(v=>(vt==="الكل"||v.type===vt)&&(!q||v.no.toLowerCase().includes(q.toLowerCase())||v.party.includes(q)));
-  $("#vbody").innerHTML=rows.length?rows.map(v=>`<tr class="click" data-no="${esc(v.no)}"><td><span class="code">${esc(v.no)}</span></td><td>${esc(v.date)}</td><td><span class="pill ${KIND[v.type]}">${esc(v.type)}</span></td><td>${esc(invWho(v))}${v.type==="إعارة"&&v.due?`<div class="sub">استرجاع: ${esc(v.due)}</div>`:""}</td><td class="num">${v.lines.length}</td><td class="num">${v.type==="شراء"?`${fmt(v.total)} <span class="sub">${esc(v.cur)}</span>${v.cur==="دولار"?`<div class="sub">≈ ${fmt(v.total_iqd)} دينار</div>`:""}`:"—"}</td><td><button class="ghost" style="padding:6px 12px">عرض / طباعة</button></td></tr>`).join(""):`<tr><td colspan="7" class="empty">ما كو فواتير بعد</td></tr>`;
+  $("#vbody").innerHTML=rows.length?rows.map(v=>`<tr class="click" data-no="${esc(v.no)}"><td><span class="code">${esc(v.no)}</span></td><td>${esc(v.date)}</td><td><span class="pill ${KIND[v.type]}">${esc(v.type)}</span></td><td>${esc(invWho(v))}${v.type==="إعارة"&&v.due?`<div class="sub">استرجاع: ${esc(v.due)}</div>`:""}</td><td class="num">${v.lines.length}</td><td class="num">${v.type==="شراء"?`${fmt(v.total)} <span class="sub">${esc(v.cur)}</span>${v.discount>0?`<div class="sub">بعد خصم ${fmt(v.discount)}</div>`:""}${v.cur==="دولار"?`<div class="sub">≈ ${fmt(v.total_iqd)} دينار</div>`:""}`:"—"}</td><td><button class="ghost" style="padding:6px 12px">عرض / طباعة</button></td></tr>`).join(""):`<tr><td colspan="7" class="empty">ما كو فواتير بعد</td></tr>`;
   document.querySelectorAll("#vbody tr.click").forEach(tr=>tr.onclick=()=>showInvoice(tr.dataset.no));
 }
 function setPage(size){let st=document.getElementById("pgsize");if(!st){st=document.createElement("style");st.id="pgsize";document.head.appendChild(st)}
@@ -833,7 +837,7 @@ function showInvoice(no,print){
    `<div><span>من: </span><b>${esc(v.frm)}</b></div><div><span>إلى قسم: </span><b>${esc(v.to)}</b></div>`}</div>
    <table><thead><tr><th style="width:40px">#</th>${v.lines.some(l=>pimgc(l.code))?`<th style="width:60px">صورة</th>`:""}<th>الكود</th><th>المادة</th><th class="num">الكمية</th>${buy?`<th class="num">سعر الوحدة (${esc(v.cur)})</th><th class="num">المجموع (${esc(v.cur)})</th>`:""}</tr></thead><tbody>
    ${v.lines.map((l,i)=>`<tr><td class="num">${i+1}</td>${v.lines.some(x=>pimgc(x.code))?`<td>${pimgc(l.code)}</td>`:""}<td><span class="code">${esc(l.code)}</span></td><td>${esc(l.name)}</td><td class="num">${fmt(l.count)} ${esc(l.unit)}${l.unit!=="قطعة"?`<div style="color:#666;font-size:12px">(${fmt(l.qty)} قطعة)</div>`:""}</td>${buy?`<td class="num">${fmt(l.uprice)}</td><td class="num">${fmt(l.total)}</td>`:""}</tr>`).join("")}</tbody></table>
-   <div class="tot"><span>مجموع القطع: ${fmt(q)}</span>${buy?`<span>الإجمالي: ${fmt(v.total)} ${esc(v.cur)}${v.cur==="دولار"?` <span style="font-size:13px;font-weight:400;color:#555">(≈ ${fmt(v.total_iqd)} دينار بسعر صرف ${fmt(v.rate)})</span>`:""}</span>`:""}</div>
+   <div class="tot"><span>مجموع القطع: ${fmt(q)}</span>${buy?(v.discount>0?`<span>الإجمالي: ${fmt(v.gross)} ${esc(v.cur)}</span><span>الخصم: −${fmt(v.discount)}</span><span>الصافي: ${fmt(v.total)} ${esc(v.cur)}${v.cur==="دولار"?` <span style="font-size:13px;font-weight:400;color:#555">(≈ ${fmt(v.total_iqd)} دينار بسعر صرف ${fmt(v.rate)})</span>`:""}</span>`:`<span>الإجمالي: ${fmt(v.total)} ${esc(v.cur)}${v.cur==="دولار"?` <span style="font-size:13px;font-weight:400;color:#555">(≈ ${fmt(v.total_iqd)} دينار بسعر صرف ${fmt(v.rate)})</span>`:""}</span>`):""}</div>
    ${v.note?`<p style="margin-top:16px"><span style="color:#555">ملاحظات: </span>${esc(v.note)}</p>`:""}
    <div class="sig"><div>${v.type==="شراء"?"المستلم (المخزن)":v.type==="إرجاع"?"المستلم (المخزن)":"المسلِّم (المخزن)"}</div><div>${v.type==="شراء"?"المورد":v.type==="إرجاع"?"المسلِّم (القسم)":"المستلم (القسم)"}</div></div></div>`;
   $("#invmodal").classList.add("open");
@@ -942,14 +946,14 @@ $("#i-imp-file").onchange=e=>{const f=e.target.files[0];e.target.value="";if(!f)
   const fr=new FileReader();fr.onload=async()=>{IPRAW=fr.result;
     try{const r=await api("/api/inv_import_preview",{data:IPRAW});
       $("#ip-sup").innerHTML=`<option value="">اختار المورد...</option>`+D.suppliers.map(x=>`<option ${x.name===(INV&&INV.h.party)?"selected":""}>${esc(x.name)}</option>`).join("");
-      $("#ip-date").value=(INV&&INV.h.date)||today();$("#ip-cur").value=(INV&&INV.h.cur)||"دينار";$("#ip-note").value=(INV&&INV.h.note)||"";ipSupCur();
+      $("#ip-date").value=(INV&&INV.h.date)||today();$("#ip-cur").value=(INV&&INV.h.cur)||"دينار";$("#ip-note").value=(INV&&INV.h.note)||"";ipSupCur();if(r.currency)$("#ip-cur").value=r.currency;$("#ip-disc").value=r.discount||"";
       ipRender(r);$("#ipmodal").classList.add("open")}
     catch(er){toast(er.message,1)}};fr.readAsDataURL(f)};
 $("#ip-sup").onchange=ipSupCur;
 $("#ip-cancel").onclick=()=>$("#ipmodal").classList.remove("open");
 $("#ip-go").onclick=async()=>{if(!$("#ip-sup").value)return toast("اختار المورد",1);
   const b=$("#ip-go");b.disabled=true;b.textContent="جاري إنشاء الفاتورة... (ممكن ياخذ ثواني)";
-  try{const r=await api("/api/inv_import_apply",{data:IPRAW,supplier:$("#ip-sup").value,currency:$("#ip-cur").value,date:$("#ip-date").value,note:$("#ip-note").value,create_missing:$("#ip-create").checked,update_prices:$("#ip-upd").checked});
+  try{const r=await api("/api/inv_import_apply",{data:IPRAW,supplier:$("#ip-sup").value,currency:$("#ip-cur").value,date:$("#ip-date").value,note:$("#ip-note").value,create_missing:$("#ip-create").checked,update_prices:$("#ip-upd").checked,discount:+$("#ip-disc").value||0});
     $("#ipmodal").classList.remove("open");await load();toast(`تم إنشاء الفاتورة ${r.no} (${r.lines} سطر${r.created?` · ${r.created} مادة جديدة`:""}${r.skipped?` · ${r.skipped} انتخطى`:""})`);
     invReset("شراء");renderInvForm();showInvoice(r.no)}
   catch(e){toast(e.message,1)}finally{b.disabled=false;b.textContent="إنشاء الفاتورة"}};

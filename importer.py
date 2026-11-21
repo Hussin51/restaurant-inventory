@@ -83,6 +83,7 @@ def parse(data, existing_codes=None, existing_names=None, suppliers=None):
     """يقرا ملف الإكسل ويرجع {rows, counts}. ما يغيّر شي.
     existing_codes: {code.casefold(): name}، existing_names: {name: code}، suppliers: set بالأسماء."""
     from openpyxl import load_workbook
+    data = as_excel(data, "items")
     existing_codes, existing_names = existing_codes or {}, existing_names or {}
     sup_known = {s.casefold() for s in (suppliers or [])}
     try:
@@ -169,11 +170,12 @@ def parse(data, existing_codes=None, existing_names=None, suppliers=None):
     return {"rows": out, "counts": counts}
 
 
-def extract_images(data):
-    """صور مدمجة بملف الإكسل (مربوطة بسطر المادة): {رقم السطر: (bytes, 'image/png')}. أي فشل = بدون صور."""
+def extract_images(data, kind="items"):
+    """صور مدمجة بملف الإكسل (مربوطة بسطر المادة): {رقم السطر: (bytes, 'image/png')}. أي فشل = بدون صور. ملف PDF يتحول لإكسل داخلي أول."""
     out = {}
     try:
         from openpyxl import load_workbook
+        data = as_excel(data, kind)
         wb = load_workbook(io.BytesIO(data))
         ws = wb[SHEET] if SHEET in wb.sheetnames else wb[wb.sheetnames[0]]
         for im in getattr(ws, "_images", []):
@@ -224,15 +226,44 @@ def invoice_template():
     return out.getvalue()
 
 
+_META_NAMES = {_norm(x) for x in ("الخصم", "خصم", "discount", "العملة", "currency", "المجموع", "المجموع الكلي", "total", "net total", "n,total", "الصافي", "net")}
+
+
+def _scan_meta(rows):
+    """الخصم والعملة من أي سطر بالملف (مثل: الخصم 914.15 أو Discount: 270 أو Currency USD)."""
+    disc, cur = None, ""
+    for row in rows:
+        cells = [c for c in row if c is not None and str(c).strip() != ""]
+        for j, c in enumerate(cells):
+            n = _norm(c)
+            if disc is None and n in ("الخصم", "خصم", "discount", "الخصمعلىالفاتورة"):
+                for d in cells[j + 1:] + cells[:j]:
+                    t = str(d).replace(",", "").replace("$", "").strip()
+                    try:
+                        disc = float(t)
+                        break
+                    except ValueError:
+                        continue
+            if not cur and n in ("العمله", "currency"):
+                for d in cells[j + 1:]:
+                    cn = _norm(d)
+                    if cn in ("usd", "دولار", "dollar"):
+                        cur = "دولار"
+                    elif cn in ("iqd", "دينار", "dinar"):
+                        cur = "دينار"
+    return disc, cur
+
+
 def parse_invoice(data, by_code=None, by_name=None):
-    """يقرأ فاتورة شراء بإكسل (أي ترتيب أعمدة): يرجّع {lines, counts, header}. ما يغيّر شي.
+    """يقرأ فاتورة شراء بإكسل (أو PDF يتحول لإكسل): يرجّع {lines, counts, discount, currency}. ما يغيّر شي.
     by_code: {code.casefold(): item}، by_name: {name.casefold(): item}."""
     from openpyxl import load_workbook
+    data = as_excel(data, "invoice")
     by_code, by_name = by_code or {}, by_name or {}
     try:
         wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
     except Exception:
-        raise ValueError("هذا مو ملف إكسل (.xlsx) صحيح")
+        raise ValueError("هذا مو ملف إكسل (.xlsx) أو PDF صحيح")
     ws = wb[wb.sheetnames[0]]
     rows = list(ws.iter_rows(values_only=True))
     hdr, cols = None, {}
@@ -260,6 +291,8 @@ def parse_invoice(data, by_code=None, by_name=None):
         qty = _num(get("qty"), "الكمية", errs)
         if not code and not name:
             continue
+        if _norm(name) in _META_NAMES or _norm(code) in _META_NAMES:
+            continue                                                # سطور المجموع والخصم والعملة مو مواد
         if qty is None and not errs:
             if all(c is None or str(c).strip() == "" for c in (get("qty"), get("price"))):
                 continue                                            # سطر بدون كمية وسعر (عنوان فرعي أو سطر فاضي)
@@ -279,9 +312,50 @@ def parse_invoice(data, by_code=None, by_name=None):
                         status=status, message="؛ ".join(errs)))
     counts = {s: sum(1 for r in out if r["status"] == s) for s in ("exists", "new", "error")}
     counts["total"] = len(out)
-    return {"lines": out, "counts": counts}
+    disc, cur = _scan_meta(rows)
+    return {"lines": out, "counts": counts, "discount": disc or 0, "currency": cur}
 
 
+# ---------------------------------------------------------------- ملفات PDF تتحول لإكسل داخلي (نفس المعاينة والتحقق)
+def as_excel(data, kind):
+    """إذا الملف PDF يرجّعه كإكسل (kind: items أو invoice) مع صور المواد، وإلا يرجّعه مثل ما هو."""
+    from pdfimport import is_pdf
+    if not is_pdf(data):
+        return data
+    import pdfimport
+    from openpyxl import Workbook
+    from openpyxl.drawing.image import Image as XImage
+    res = pdfimport.extract_cached(bytes(data))
+    wb = Workbook()
+    ws = wb.active
+    ws.title = SHEET if kind == "items" else "الفاتورة"
+    if kind == "items":
+        ws.append(["الكود *", "اسم المادة *", "الاستخدام", "سعر القطعة", "عملة السعر"])
+    else:
+        ws.append(["الكود", "المادة", "الكمية", "سعر القطعة", "الوحدة"])
+    for r in res["rows"]:
+        if kind == "invoice" and not (r.get("qty") or 0) > 0:
+            continue                                                  # سطر بكمية صفر (ما انباع) ينتخطى
+        if kind == "items":
+            ws.append([r["code"], r["name"], r.get("usage", ""), r.get("price"), res.get("currency") or None])
+        else:
+            ws.append([r["code"], r["name"], r.get("qty"), r.get("price"), "قطعة"])
+        if r.get("image"):
+            try:
+                img = XImage(io.BytesIO(r["image"]))
+                img.width = img.height = 40
+                ws.add_image(img, f"G{ws.max_row}")
+            except Exception:
+                pass
+    if kind == "invoice":
+        ws.append([])
+        if res.get("discount"):
+            ws.append(["", "الخصم", "", res["discount"]])
+        if res.get("currency"):
+            ws.append(["", "العملة", res["currency"]])
+    out = io.BytesIO()
+    wb.save(out)
+    return out.getvalue()
 def build_template(categories):
     """ملف إكسل فاضي للتعبئة: ورقة «المواد» وورقة «تعليمات» (فيها مثال وشرح الأعمدة)."""
     from openpyxl import Workbook
