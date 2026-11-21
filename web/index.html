@@ -344,7 +344,7 @@ tbody tr:hover td{background:var(--soft)}
 
   <!-- الجرد -->
   <section id="v-items" class="hide">
-    <div class="tools"><input id="isearch" placeholder="ابحث بالاسم أو الكود..."><div class="chips" id="cats"></div><div class="chips" data-stf></div><div style="margin-inline-start:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><div class="seg" id="it-view" style="margin:0"><button type="button" data-v="table">جدول</button><button type="button" data-v="gallery">معرض صور</button></div><details class="moremenu" id="it-more"><summary>المزيد</summary><div class="mm"><button id="it-pdf">تنزيل PDF (المواد والأرصدة)</button><button id="it-print">طباعة</button><button id="it-sort" title="يرتّب المواد حسب التصنيف ثم الكود">ترتيب حسب التصنيف</button><a href="/api/items_template">تحميل قالب إكسل</a></div></details><button class="primary" id="it-import">استيراد (إكسل أو PDF)</button></div></div>
+    <div class="tools"><input id="isearch" placeholder="ابحث بالاسم أو الكود..."><div class="chips" id="cats"></div><div class="chips" data-stf></div><div style="margin-inline-start:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><div class="seg" id="it-view" style="margin:0"><button type="button" data-v="table">جدول</button><button type="button" data-v="gallery">معرض صور</button></div><details class="moremenu" id="it-more"><summary>المزيد</summary><div class="mm"><button id="it-pdfg">تنزيل PDF بوضع عرض الصور</button><button id="it-pdf">تنزيل PDF (جدول)</button><button id="it-print">طباعة</button><button id="it-sort" title="يرتّب المواد حسب التصنيف ثم الكود">ترتيب حسب التصنيف</button><a href="/api/items_template">تحميل قالب إكسل</a></div></details><button class="primary" id="it-import">استيراد (إكسل أو PDF)</button></div></div>
     <div class="bulk hide" id="it-bulk"><span id="it-bulk-n"></span><span style="display:flex;gap:8px"><button class="danger" id="it-bulk-del">حذف المحدد</button><button class="ghost" id="it-bulk-x">إلغاء التحديد</button></span></div>
     <div class="gallery hide" id="it-gallery"></div>
     <div class="card tw" id="it-tablecard"><table><thead><tr><th style="width:38px"><input type="checkbox" id="it-all" title="تحديد كل المعروض"></th><th style="width:64px"></th><th>الكود</th><th>المادة</th><th>التصنيف</th><th class="num">المتبقي بالمخزن</th><th class="num">الحد الأدنى</th><th>الحالة</th><th class="num">سعر الوحدة</th><th class="num">القيمة</th></tr></thead><tbody id="itbody"></tbody></table></div>
@@ -535,6 +535,14 @@ tbody tr:hover td{background:var(--soft)}
   <label style="display:flex;gap:8px;align-items:center;font-weight:600;margin-top:14px"><input type="checkbox" id="ip-create" checked> أنشئ المواد الجديدة تلقائياً (بالاسم والسعر والصورة اللي بالملف)</label>
   <label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="ip-upd" checked> حدّث سعر المواد بآخر سعر شراء</label>
   <div class="btns"><button class="primary" id="ip-go">إنشاء الفاتورة</button><button class="ghost" id="ip-cancel">إلغاء</button></div>
+</div></div>
+<div class="modal" id="pgmodal"><div class="card dlg">
+  <h2>PDF بوضع عرض الصور</h2>
+  <div class="hint" style="margin-top:0">يطلع ملف PDF فيه بطاقة لكل مادة (صورة كبيرة والاسم والكود والرصيد والحالة). يحترم الفلتر والبحث اللي مفعّلهم بشاشة المواد والأرصدة.</div>
+  <label style="margin-top:14px">عدد البطاقات بالسطر</label><select id="pg-cols"><option value="3">٣ (صور كبيرة)</option><option value="4">٤</option><option value="5">٥ (أكثر مواد بالصفحة)</option></select>
+  <label style="display:flex;gap:8px;align-items:center;font-weight:600;margin-top:14px"><input type="checkbox" id="pg-hide" checked> إخفاء الأسعار والقيم (مناسب لإرساله لشخص ثاني)</label>
+  <label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="pg-usage"> إظهار الاستخدام تحت الاسم</label>
+  <div class="btns"><button class="primary" id="pg-go">تنزيل PDF</button><button class="ghost" id="pg-cancel">إلغاء</button></div>
 </div></div>
 <div class="lbx" id="lbx"><button class="lbn" id="lbx-next" title="التالي">›</button><button class="lbn" id="lbx-prev" title="السابق">‹</button><img id="lbx-img" alt=""><b id="lbx-t"></b><span id="lbx-s" class="lbs"></span><small>اضغط بأي مكان أو Esc للإغلاق · الأسهم للتنقل بين الصور</small></div>
 
@@ -1133,6 +1141,16 @@ function itemsDoc(){const q=$("#isearch").value.trim().toLowerCase();
     rows.map(i=>[pimg(i),esc(i.code),`<b>${esc(i.name)}</b>${i.usage?`<div style="color:#666;font-size:12px">${esc(i.usage)}</div>`:""}`,esc(i.cat||""),`<b>${fmt(i.balance)}</b>${packs(i,i.balance)?` <small>(${esc(packs(i,i.balance))})</small>`:""}`,i.held?fmt(i.held):"",fmt(i.min),esc(i.status),`${fmt(i.price)} ${esc(i.cur||"دينار")}`,fmt(i.value_total||i.value||0)]),
     "المتبقي بالمخزن = الي بالمخزن وجاهز للصرف. «عند الأقسام» الي استلمته الأقسام ولسا موجود عندها. القيمة بالدينار (مواد الدولار بسعر الصرف الحالي)."]}
 $("#it-print").onclick=()=>printDoc(...itemsDoc(),"A4 landscape");
+$("#it-pdfg").onclick=()=>$("#pgmodal").classList.add("open");
+$("#pg-cancel").onclick=()=>$("#pgmodal").classList.remove("open");
+$("#pg-go").onclick=()=>{const q=$("#isearch").value.trim().toLowerCase(),cols=+$("#pg-cols").value||3,hide=$("#pg-hide").checked,us=$("#pg-usage").checked;
+  const rows=D.items.filter(i=>(catF==="الكل"||i.cat===catF)&&stOk(i)&&hit(i,q));
+  const fl=[catF!=="الكل"?catF:"",STF!=="كل الأرصدة"?STF:"",q?`بحث: ${q}`:""].filter(Boolean).join(" · ");
+  const stc=i=>{const c=stCls(i.status);return c==="out"?["#FEE2E2","#B91C1C"]:c==="low"?["#FEF3C7","#B45309"]:["#DCFCE7","#15803D"]};
+  const card=i=>{const[bg,fg]=stc(i);return `<div class="pgc"><div class="pgi">${i.image?`<img src="/img/${encodeURIComponent(i.image)}?t=${IMGV}" alt="">`:`<span>${esc((i.name||"؟").trim().charAt(0))}</span>`}</div><div class="pgb"><b>${esc(i.name)}</b>${us&&i.usage?`<div class="pgu">${esc(i.usage)}</div>`:""}<div class="pgk">${esc(i.code)}</div><div class="pgr"><span style="background:${bg};color:${fg}">${esc(i.status)}</span><b>${fmt(i.balance)} <small>قطعة</small></b></div>${packs(i,i.balance)?`<div class="pgu">${esc(packs(i,i.balance))}</div>`:""}${hide?"":`<div class="pgu">${fmt(i.price)} ${esc(i.cur||"دينار")} · القيمة ${fmt(i.value_total||i.value||0)}</div>`}</div></div>`};
+  const css=`<style>.pgrid{display:grid;grid-template-columns:repeat(${cols},1fr);gap:${cols>=5?8:12}px;margin-top:14px}.pgc{border:1px solid #d7dde3;border-radius:10px;overflow:hidden;break-inside:avoid;page-break-inside:avoid;background:#fff}.pgi{aspect-ratio:4/3;position:relative;background:#fff;border-bottom:1px solid #e5e9f0}.pgi img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:8px}.pgi span{position:absolute;inset:0;display:grid;place-items:center;font-size:42px;font-weight:700;color:#cbd5e1}.pgb{padding:7px 9px 9px;font-size:${cols>=5?10:12}px;line-height:1.35}.pgb>b{display:block;font-size:${cols>=5?10.5:12.5}px;margin-bottom:3px}.pgk{font-family:Consolas,monospace;color:#64748b;font-size:${cols>=5?9:10.5}px;margin-bottom:4px}.pgr{display:flex;justify-content:space-between;align-items:center;gap:4px}.pgr span{padding:1px 7px;border-radius:99px;font-weight:700;font-size:${cols>=5?9:10.5}px}.pgu{color:#64748b;font-size:${cols>=5?9:10.5}px;margin-top:3px}</style>`;
+  $("#pgmodal").classList.remove("open");
+  pdfFrom(docHTML("المواد والأرصدة"+(fl?` - ${fl}`:""),`${rows.length} مادة`,[],[],"").replace(/<table[\s\S]*<\/table>/,`${css}<div class="pgrid">${rows.map(card).join("")}</div>`),"A4","معرض_المواد")};
 $("#it-pdf").onclick=()=>pdfFrom(docHTML(...itemsDoc()),"A4 landscape","المواد والأرصدة");
 async function pdfFrom(html,size,name){
   toast("جاري تجهيز الـPDF...");

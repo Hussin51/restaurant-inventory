@@ -11,7 +11,7 @@ import clothes
 import updater
 from urllib.parse import urlparse, parse_qs, quote, unquote
 
-VERSION = "1.10.2"
+VERSION = "1.10.3"
 BASE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 LOCK = threading.Lock()
 PENDING = False
