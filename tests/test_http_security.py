@@ -83,6 +83,16 @@ class HttpSecurityTests(unittest.TestCase):
         d.set_viewonly(False)
         self.assertIsNotNone(d.cloud_backup())
 
+    def test_pdf_endpoint_needs_the_app_header_and_never_crashes(self):
+        body = {"html": "<p>x</p>", "size": "A4"}
+        self.assertEqual(self.req("/api/pdf", body), 403)                                                    # بدون ترويسة البرنامج
+        self.assertEqual(self.req("/api/pdf", body, {"X-Requested-With": "jard", "Origin": "http://evil.example"}), 403)
+        ok = {"X-Requested-With": "jard", "Origin": f"http://127.0.0.1:{self.port}"}
+        from unittest import mock
+        with mock.patch.object(app, "find_app_browser", return_value=None), mock.patch.object(app, "FALLBACK_BROWSERS", ()):
+            self.assertEqual(self.req("/api/pdf", body, ok), 400)                                           # ما فيه متصفح: رسالة واضحة مو انهيار
+        self.assertEqual(self.req("/pdfpage/doesnotexist"), 404)
+
 
 if __name__ == "__main__":
     unittest.main()

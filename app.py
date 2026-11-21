@@ -1,5 +1,5 @@
 """برنامج جرد المطعم: يشغّل صفحة محلية بالمتصفح ويقرأ/يكتب بملف الإكسل نفسه."""
-import json, os, sys, threading, webbrowser, socket, argparse, subprocess, base64, re, mimetypes, shlex, tempfile, time
+import json, os, shutil, sys, threading, webbrowser, socket, argparse, subprocess, base64, re, mimetypes, shlex, tempfile, time
 import urllib.request
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from datetime import date
@@ -11,13 +11,15 @@ import clothes
 import updater
 from urllib.parse import urlparse, parse_qs, quote, unquote
 
-VERSION = "1.10.1"
+VERSION = "1.10.2"
 BASE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 LOCK = threading.Lock()
 PENDING = False
 LAST_WRITE = 0.0
 WRITE_PATHS = ("/api/movement", "/api/invoice", "/api/item", "/api/item_update", "/api/image", "/api/supplier", "/api/supplier_update", "/api/settings", "/api/restore", "/api/count", "/api/import_apply", "/api/inv_import_apply", "/api/sort_items", "/api/item_delete", "/api/items_delete", "/api/invoice_delete", "/api/supplier_delete", "/api/movement_delete", "/api/cl_item", "/api/cl_receive", "/api/cl_issue", "/api/cl_adjust", "/api/cl_doc_delete", "/api/cl_item_delete", "/api/cl_move_delete", "/api/cl_buy", "/api/cl_buy_delete")
-VIEW_OK = ("/api/viewonly", "/api/restore", "/api/quit", "/api/open", "/api/openfolder", "/api/update_install")
+VIEW_OK = ("/api/pdf", "/api/viewonly", "/api/restore", "/api/quit", "/api/open", "/api/openfolder", "/api/update_install")
+PDF_PAGES = {}
+FALLBACK_BROWSERS = ("/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/google-chrome")
 STORE = None
 PORT = 0
 DATA = None
@@ -192,6 +194,12 @@ class H(BaseHTTPRequestHandler):
             self.wfile.write(z)
         elif path in ("/", "/index.html"):
             self.send(200, open(os.path.join(BASE, "web", "index.html"), "rb").read(), "text/html; charset=utf-8")
+        elif path.startswith("/pdfpage/"):
+            body = PDF_PAGES.get(path[9:])
+            if body is None:
+                self.send(404, b"{}")
+            else:
+                self.send(200, body, "text/html; charset=utf-8")
         elif path.startswith("/img/"):
             fn = os.path.basename(path[5:])
             fn = os.path.basename(unquote(fn))
@@ -220,7 +228,11 @@ class H(BaseHTTPRequestHandler):
             return self.send(403, to_json(dict(error="هذي نسخة مشاهدة فقط: ما تنفع التعديلات. لتحديث البيانات: الإعدادات ← استرجاع من نسخة احتياطية")))
         try:
             res = {}
-            if p == "/api/viewonly":
+            if p == "/api/pdf":
+                size = b.get("size") if b.get("size") in ("A4", "A5", "A4 landscape") else "A4"
+                pdf = render_pdf(str(b.get("html") or ""), size)
+                return self.send(200, pdf, "application/pdf")
+            elif p == "/api/viewonly":
                 with LOCK:
                     DATA.set_viewonly(bool(b.get("on")))
             elif p == "/api/movement":
@@ -462,6 +474,43 @@ class H(BaseHTTPRequestHandler):
             self.send(500, to_json(dict(error="فشل النسخ للسحابة: " + str(e))))
         except Exception as e:
             self.send(500, to_json(dict(error=str(e))))
+
+
+def render_pdf(html, size="A4"):
+    """يحوّل ورقة الطباعة (نفس الي تطلع بالطباعة) لملف PDF باستخدام Edge أو Chrome الموجود عالجهاز. يرجّع bytes."""
+    exe = find_app_browser()
+    if not exe:
+        for cand in FALLBACK_BROWSERS:
+            if os.path.exists(cand):
+                exe = cand
+                break
+    if not exe:
+        raise ValueError("ما لقيت Edge أو Chrome لإنشاء الـPDF. استخدم زر «طباعة» ثم اختار «حفظ كـ PDF»")
+    css = re.search(r"<style>(.*?)</style>", open(os.path.join(BASE, "web", "index.html"), encoding="utf8").read(), re.S).group(1)
+    margin = "8mm" if size == "A5" else "12mm"
+    page = (f'<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><style>{css}\n@page{{size:{size};margin:{margin}}}</style></head>'
+            f'<body><div class="modal open" id="invmodal"><div class="card dlg"><div id="paper"><div class="paper{" a5" if size == "A5" else ""}">{html}</div></div></div></div></body></html>')
+    import uuid
+    tok = uuid.uuid4().hex
+    PDF_PAGES[tok] = page.encode("utf-8")
+    tmp = tempfile.mkdtemp(prefix="inv-pdf-")
+    out = os.path.join(tmp, "out.pdf")
+    try:
+        args = [exe, "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check", "--disable-extensions",
+                "--disable-background-networking", "--disable-component-update", "--disable-sync", "--disable-default-apps", "--no-service-autorun",
+                f"--user-data-dir={os.path.join(tmp, 'profile')}", "--no-pdf-header-footer", "--virtual-time-budget=6000",
+                f"--print-to-pdf={out}"] + (["--no-sandbox"] if os.name != "nt" else []) + [f"http://127.0.0.1:{PORT}/pdfpage/{tok}"]
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        subprocess.run(args, timeout=60, creationflags=flags, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if not os.path.exists(out) or os.path.getsize(out) < 500:
+            raise ValueError("ما كدرت أسوي الـPDF. استخدم زر «طباعة» ثم «حفظ كـ PDF»")
+        with open(out, "rb") as f:
+            return f.read()
+    except subprocess.TimeoutExpired:
+        raise ValueError("إنشاء الـPDF أخذ وقت طويل. جرّب مرة ثانية أو استخدم «طباعة» ← «حفظ كـ PDF»")
+    finally:
+        PDF_PAGES.pop(tok, None)
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def shutdown():

@@ -191,7 +191,8 @@ def _from_words(page, _norm, al):
     while body and body[0][0]["top"] - top < 16 and all(_hdr_key(w["t"], _norm, al) for w in body[0]):
         body = body[1:]                                               # باقي الترويسة (سطر ثاني)
     for i, l in enumerate(body):                                      # نهاية الجدول: سطر المجموع
-        if any(re.fullmatch(r"(total|discount|net|المجموع|الخصم)[:]?", w["t"].lower()) for w in l) and not any(col_of(w) == "qty" for w in l if re.fullmatch(r"\d+", w["t"])):
+        txt = " ".join(w["t"] for w in l)
+        if re.search(r"\bPage\s*\d+\s*(of|/)\s*\d+|www\.", txt, re.I) or (any(re.fullmatch(r"(total|discount|net|المجموع|الخصم)[:]?", w["t"].lower()) for w in l) and not any(col_of(w) == "qty" for w in l if re.fullmatch(r"\d+", w["t"]))):
             body = body[:i]
             break
     cells = []
@@ -206,11 +207,17 @@ def _from_words(page, _norm, al):
     if not anchors:
         return []
     first_text = any("name" in cells[i][2] for i in range(0, anchors[0]))
+    def split_between(i0, i1):
+        """حد الفصل بين صفين: أكبر فراغ عمودي بين أسطر الصفين (وإلا النص)."""
+        tops = sorted({cells[i0][0], cells[i1][0], *[t for (t, _, _) in cells if cells[i0][0] < t < cells[i1][0]]})
+        gaps = [(tops[k + 1] - tops[k], k) for k in range(len(tops) - 1)]
+        g, k = max(gaps)
+        return (tops[k] + tops[k + 1]) / 2 if g >= 14 else (cells[i0][0] + cells[i1][0]) / 2
     spans = []
     for n, a in enumerate(anchors):
         if first_text:                                                 # الوصف يبدأ قبل سطر الكمية والسعر (مثل Zad): نقسم بالنص بين الصفوف
-            lo = 0 if n == 0 else (cells[anchors[n - 1]][0] + cells[a][0]) / 2
-            hi = 1e9 if n == len(anchors) - 1 else (cells[a][0] + cells[anchors[n + 1]][0]) / 2
+            lo = 0 if n == 0 else split_between(anchors[n - 1], a)
+            hi = 1e9 if n == len(anchors) - 1 else split_between(a, anchors[n + 1])
         else:                                                          # سطر عنوان الصف ثم التفاصيل تحته (مثل Atlas)
             lo = cells[a][0] - 2
             hi = 1e9 if n == len(anchors) - 1 else cells[anchors[n + 1]][0] - 2

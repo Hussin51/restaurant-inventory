@@ -344,7 +344,7 @@ tbody tr:hover td{background:var(--soft)}
 
   <!-- الجرد -->
   <section id="v-items" class="hide">
-    <div class="tools"><input id="isearch" placeholder="ابحث بالاسم أو الكود..."><div class="chips" id="cats"></div><div class="chips" data-stf></div><div style="margin-inline-start:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><div class="seg" id="it-view" style="margin:0"><button type="button" data-v="table">جدول</button><button type="button" data-v="gallery">معرض صور</button></div><details class="moremenu" id="it-more"><summary>المزيد</summary><div class="mm"><button id="it-print">طباعة</button><button id="it-sort" title="يرتّب المواد حسب التصنيف ثم الكود">ترتيب حسب التصنيف</button><a href="/api/items_template">تحميل قالب إكسل</a></div></details><button class="primary" id="it-import">استيراد (إكسل أو PDF)</button></div></div>
+    <div class="tools"><input id="isearch" placeholder="ابحث بالاسم أو الكود..."><div class="chips" id="cats"></div><div class="chips" data-stf></div><div style="margin-inline-start:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><div class="seg" id="it-view" style="margin:0"><button type="button" data-v="table">جدول</button><button type="button" data-v="gallery">معرض صور</button></div><details class="moremenu" id="it-more"><summary>المزيد</summary><div class="mm"><button id="it-pdf">تنزيل PDF (المواد والأرصدة)</button><button id="it-print">طباعة</button><button id="it-sort" title="يرتّب المواد حسب التصنيف ثم الكود">ترتيب حسب التصنيف</button><a href="/api/items_template">تحميل قالب إكسل</a></div></details><button class="primary" id="it-import">استيراد (إكسل أو PDF)</button></div></div>
     <div class="bulk hide" id="it-bulk"><span id="it-bulk-n"></span><span style="display:flex;gap:8px"><button class="danger" id="it-bulk-del">حذف المحدد</button><button class="ghost" id="it-bulk-x">إلغاء التحديد</button></span></div>
     <div class="gallery hide" id="it-gallery"></div>
     <div class="card tw" id="it-tablecard"><table><thead><tr><th style="width:38px"><input type="checkbox" id="it-all" title="تحديد كل المعروض"></th><th style="width:64px"></th><th>الكود</th><th>المادة</th><th>التصنيف</th><th class="num">المتبقي بالمخزن</th><th class="num">الحد الأدنى</th><th>الحالة</th><th class="num">سعر الوحدة</th><th class="num">القيمة</th></tr></thead><tbody id="itbody"></tbody></table></div>
@@ -573,7 +573,7 @@ tbody tr:hover td{background:var(--soft)}
 <!-- عرض فاتورة -->
 <div class="modal" id="invmodal"><div class="card dlg wide" style="width:min(820px,100%)">
   <div id="paper"></div>
-  <div class="btns noprint"><button class="primary" id="iv-print">طباعة</button><button class="ghost" id="iv-close">إغلاق</button><button class="danger hide" id="iv-delete">حذف الفاتورة</button></div>
+  <div class="btns noprint"><button class="primary" id="iv-print">طباعة</button><button class="ghost" id="iv-pdf">حفظ PDF</button><button class="ghost" id="iv-close">إغلاق</button><button class="danger hide" id="iv-delete">حذف الفاتورة</button></div>
 </div></div>
 <div class="toast" id="toast"></div>
 
@@ -1113,18 +1113,33 @@ $("#r-fac").onchange=e=>{RD.factor=Math.max(1,+e.target.value||2);runReport()};
 const pimgc=(code,sz=46)=>{const it=code&&byCode(code);return it&&it.image?`<img src="/img/${encodeURIComponent(it.image)}?t=${IMGV}" style="width:${sz}px;height:${sz}px;object-fit:contain;display:block;margin:auto" alt="">`:""};
 const pimgIn=code=>{const h=pimgc(code,30);return h?h.replace("display:block;margin:auto","display:inline-block;vertical-align:middle;margin-inline-end:6px"):""};
 const pimg=i=>i.image?`<img src="/img/${encodeURIComponent(i.image)}?t=${IMGV}" style="width:46px;height:46px;object-fit:contain;display:block;margin:auto" alt="">`:"";
-function printDoc(title,sub,columns,rows,note){
-  const h=`<div class="rhead"><img src="/logo.png" alt=""><div><h3>${esc(D.settings.name)}</h3><div style="color:#444;font-size:17px;font-weight:700;margin-top:2px">${esc(title)}</div><div style="color:#666">${esc(sub||"")}</div></div></div>
+function docHTML(title,sub,columns,rows,note){
+  return `<div class="rhead"><img src="/logo.png" alt=""><div><h3>${esc(D.settings.name)}</h3><div style="color:#444;font-size:17px;font-weight:700;margin-top:2px">${esc(title)}</div><div style="color:#666">${esc(sub||"")}</div></div></div>
    <table style="margin-top:14px"><thead><tr>${columns.map(c=>`<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(v=>`<td>${v}</td>`).join("")}</tr>`).join("")||`<tr><td colspan="${columns.length}" style="text-align:center;color:#777">لا يوجد</td></tr>`}</tbody></table>
-   ${note?`<p style="margin-top:14px;color:#666;font-size:12.5px">${esc(note)}</p>`:""}<p style="margin-top:6px;color:#999;font-size:11.5px">طُبع بتاريخ ${today()}</p>`;
-  printHTML(h)}
-function printHTML(html){CURINV=CURCL=CURCLB=null;setPage("A4");$("#iv-delete").classList.add("hide");$("#paper").innerHTML=`<div class="paper">${html}</div>`;$("#invmodal").classList.add("open");setTimeout(()=>window.print(),350)}
+   ${note?`<p style="margin-top:14px;color:#666;font-size:12.5px">${esc(note)}</p>`:""}<p style="margin-top:6px;color:#999;font-size:11.5px">طُبع بتاريخ ${today()}</p>`}
+function printDoc(title,sub,columns,rows,note,size){printHTML(docHTML(title,sub,columns,rows,note),size)}
+function printHTML(html,size){CURINV=CURCL=CURCLB=null;setPage(size||"A4");$("#iv-delete").classList.add("hide");$("#paper").innerHTML=`<div class="paper">${html}</div>`;$("#invmodal").classList.add("open");setTimeout(()=>window.print(),350)}
+$("#iv-pdf").onclick=()=>{const pg=(document.getElementById("pgsize")||{}).textContent||"";
+  const html=$("#paper").querySelector(".paper")?$("#paper").querySelector(".paper").innerHTML:$("#paper").innerHTML;
+  const nm=CURINV?CURINV.no:CURCL?CURCL.no:CURCLB?CURCLB.no:(($("#paper").querySelector(".rhead div div:nth-child(2)")||{}).textContent||"ورقة").trim().slice(0,40);
+  pdfFrom(html,/A5/.test(pg)?"A5":/landscape/.test(pg)?"A4 landscape":"A4",nm)};
 $("#r-print").onclick=()=>printHTML($("#rep-paper").innerHTML);
 $("#r-xlsx").onclick=()=>{location.href="/api/report_xlsx?"+repQS()};
-$("#it-print").onclick=()=>{const q=$("#isearch").value.trim().toLowerCase();
+function itemsDoc(){const q=$("#isearch").value.trim().toLowerCase();
   const rows=D.items.filter(i=>(catF==="الكل"||i.cat===catF)&&stOk(i)&&hit(i,q));
-  printDoc("قائمة المواد"+(catF!=="الكل"?` - ${catF}`:""),`${rows.length} مادة`,["صورة","الكود","المادة","الاستخدام","المتبقي بالمخزن","عند الأقسام","الحد الأدنى","الحالة"],
-    rows.map(i=>[pimg(i),esc(i.code),esc(i.name),esc(i.usage||""),`${fmt(i.balance)}${packs(i,i.balance)?` <small>(${esc(packs(i,i.balance))})</small>`:""}`,i.held?fmt(i.held):"",fmt(i.min),esc(i.status)]),"المتبقي بالمخزن = الي بالمخزن وجاهز للصرف. «عند الأقسام» الي استلمته الأقسام ولسا موجود عندها.")};
+  const fl=[catF!=="الكل"?catF:"",STF!=="كل الأرصدة"?STF:"",q?`بحث: ${q}`:""].filter(Boolean).join(" · ");
+  const tot=rows.reduce((a,i)=>a+(i.value_total||i.value||0),0);
+  return ["المواد والأرصدة"+(fl?` - ${fl}`:""),`${rows.length} مادة · قيمة المخزون ${fmt(tot)} دينار`,["صورة","الكود","المادة","التصنيف","المتبقي بالمخزن","عند الأقسام","الحد الأدنى","الحالة","سعر الوحدة","القيمة (دينار)"],
+    rows.map(i=>[pimg(i),esc(i.code),`<b>${esc(i.name)}</b>${i.usage?`<div style="color:#666;font-size:12px">${esc(i.usage)}</div>`:""}`,esc(i.cat||""),`<b>${fmt(i.balance)}</b>${packs(i,i.balance)?` <small>(${esc(packs(i,i.balance))})</small>`:""}`,i.held?fmt(i.held):"",fmt(i.min),esc(i.status),`${fmt(i.price)} ${esc(i.cur||"دينار")}`,fmt(i.value_total||i.value||0)]),
+    "المتبقي بالمخزن = الي بالمخزن وجاهز للصرف. «عند الأقسام» الي استلمته الأقسام ولسا موجود عندها. القيمة بالدينار (مواد الدولار بسعر الصرف الحالي)."]}
+$("#it-print").onclick=()=>printDoc(...itemsDoc(),"A4 landscape");
+$("#it-pdf").onclick=()=>pdfFrom(docHTML(...itemsDoc()),"A4 landscape","المواد والأرصدة");
+async function pdfFrom(html,size,name){
+  toast("جاري تجهيز الـPDF...");
+  try{const r=await fetch("/api/pdf",{method:"POST",headers:{"Content-Type":"application/json","X-Requested-With":"jard"},body:JSON.stringify({html,size})});
+    if(!(r.headers.get("content-type")||"").includes("pdf")){const j=await r.json().catch(()=>({}));throw new Error(j.error||"فشل إنشاء الـPDF")}
+    const a=document.createElement("a");a.href=URL.createObjectURL(await r.blob());a.download=`${name}_${today()}.pdf`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);toast("تم تنزيل الـPDF")}
+  catch(e){toast(e.message,1)}}
 $("#ln-print").onclick=()=>{const L=[...(D.loans||[])].sort((a,b)=>String(a.due).localeCompare(String(b.due)));
   printDoc("الإعارات المفتوحة",`${L.length} إعارة`,["الإعارة","القسم","تاريخ الإعارة","موعد الاسترجاع","الحالة","المواد المتبقية"],
     L.map(l=>[esc(l.no),esc(l.dept),esc(l.date),esc(l.due||""),l.status==="متأخرة"?`متأخرة ${Math.abs(l.days)} يوم`:l.status==="اليوم"?"موعدها اليوم":`بعد ${l.days} يوم`,l.lines.map(x=>`${pimgIn(x.code)}${esc(x.name)} × ${fmt(x.remaining)}`).join("<br>")]))};
