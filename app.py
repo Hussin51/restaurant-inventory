@@ -11,7 +11,7 @@ import clothes
 import updater
 from urllib.parse import urlparse, parse_qs, quote, unquote
 
-VERSION = "1.10.5"
+VERSION = "1.10.6"
 BASE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 LOCK = threading.Lock()
 PENDING = False
@@ -499,21 +499,42 @@ def render_pdf(html, size="A4"):
     import uuid
     tok = uuid.uuid4().hex
     PDF_PAGES[tok] = page.encode("utf-8")
-    tmp = tempfile.mkdtemp(prefix="inv-pdf-")
+    base_tmp = tempfile.gettempdir()
+    if os.name == "nt" and not base_tmp.isascii():          # اسم مستخدم عربي بمسار الـTemp: نستخدم مسار إنكليزي
+        for alt in (os.environ.get("ProgramData"), os.environ.get("SystemDrive", "C:") + "\\"):
+            if alt and alt.isascii() and os.path.isdir(alt):
+                base_tmp = alt
+                break
+    tmp = tempfile.mkdtemp(prefix="inv-pdf-", dir=base_tmp)
     out = os.path.join(tmp, "out.pdf")
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    common = ["--disable-gpu", "--no-first-run", "--no-default-browser-check", "--disable-extensions",
+              "--disable-background-networking", "--disable-component-update", "--disable-sync", "--disable-default-apps", "--no-service-autorun"]
+    url = f"http://127.0.0.1:{PORT}/pdfpage/{tok}"
+
+    def ok():
+        for _ in range(10):                                   # الملف أحياناً يتأخر ثواني بعد ما تخلص العملية
+            if os.path.exists(out) and os.path.getsize(out) > 500:
+                time.sleep(0.2)
+                return True
+            time.sleep(0.4)
+        return False
     try:
-        args = [exe, "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check", "--disable-extensions",
-                "--disable-background-networking", "--disable-component-update", "--disable-sync", "--disable-default-apps", "--no-service-autorun",
-                f"--user-data-dir={os.path.join(tmp, 'profile')}", "--no-pdf-header-footer", "--virtual-time-budget=6000",
-                f"--print-to-pdf={out}"] + (["--no-sandbox"] if os.name != "nt" else []) + [f"http://127.0.0.1:{PORT}/pdfpage/{tok}"]
-        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-        subprocess.run(args, timeout=60, creationflags=flags, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        if not os.path.exists(out) or os.path.getsize(out) < 500:
-            raise ValueError("ما كدرت أسوي الـPDF. استخدم زر «طباعة» ثم «حفظ كـ PDF»")
-        with open(out, "rb") as f:
-            return f.read()
-    except subprocess.TimeoutExpired:
-        raise ValueError("إنشاء الـPDF أخذ وقت طويل. جرّب مرة ثانية أو استخدم «طباعة» ← «حفظ كـ PDF»")
+        # محاولتين: وضع headless الجديد ثم القديم (بعض إصدارات Edge تشتغل بواحد فقط)
+        for n, mode in enumerate(("--headless=new", "--headless")):
+            prof = os.path.join(tmp, f"profile{n}")
+            args = [exe, mode] + common + [f"--user-data-dir={prof}", "--no-pdf-header-footer", "--print-to-pdf-no-header",
+                                           "--virtual-time-budget=6000", f"--print-to-pdf={out}"] + (["--no-sandbox"] if os.name != "nt" else []) + [url]
+            try:
+                r = subprocess.run(args, timeout=45, creationflags=flags, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+                err = (r.stderr or b"")[-300:].decode("utf-8", "ignore").strip()
+            except subprocess.TimeoutExpired:
+                err = "timeout"
+            if ok():
+                with open(out, "rb") as f:
+                    return f.read()
+            ulog(f"pdf attempt {mode} failed: {err}")
+        raise ValueError("ما كدرت أسوي الـPDF بشكل مباشر")
     finally:
         PDF_PAGES.pop(tok, None)
         shutil.rmtree(tmp, ignore_errors=True)

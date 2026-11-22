@@ -1170,7 +1170,7 @@ async function pdfFrom(html,size,name){
   try{const r=await fetch("/api/pdf",{method:"POST",headers:{"Content-Type":"application/json","X-Requested-With":"jard"},body:JSON.stringify({html,size})});
     if(!(r.headers.get("content-type")||"").includes("pdf")){const j=await r.json().catch(()=>({}));throw new Error(j.error||"فشل إنشاء الـPDF")}
     const a=document.createElement("a");a.href=URL.createObjectURL(await r.blob());a.download=`${name}_${today()}.pdf`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);toast("تم تنزيل الـPDF")}
-  catch(e){toast(e.message,1)}}
+  catch(e){toast("تعذّر التنزيل المباشر، رح تنفتح نافذة الطباعة: اختار «حفظ كـ PDF»",1);setTimeout(()=>printHTML(html,size),1200)}}
 $("#ln-print").onclick=()=>{const L=[...(D.loans||[])].sort((a,b)=>String(a.due).localeCompare(String(b.due)));
   printDoc("الإعارات المفتوحة",`${L.length} إعارة`,["الإعارة","القسم","تاريخ الإعارة","موعد الاسترجاع","الحالة","المواد المتبقية"],
     L.map(l=>[esc(l.no),esc(l.dept),esc(l.date),esc(l.due||""),l.status==="متأخرة"?`متأخرة ${Math.abs(l.days)} يوم`:l.status==="اليوم"?"موعدها اليوم":`بعد ${l.days} يوم`,l.lines.map(x=>`${pimgIn(x.code)}${esc(x.name)} × ${fmt(x.remaining)}`).join("<br>")]))};
