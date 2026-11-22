@@ -564,6 +564,10 @@ tbody tr:hover td{background:var(--soft)}
   </div>
   <div class="hint">البرنامج ياخذ نسخة تلقائية كل يوم بمجلد «نسخ_احتياطية». لنقل البرنامج لكمبيوتر جديد: نزّل نسخة، ثبّت البرنامج على الجهاز الجديد، واضغط «استرجاع».</div>
   <div class="hint" id="st-bk"></div>
+  <h2 style="margin-top:26px">التحديث</h2>
+  <div class="hint" style="margin-top:0" id="st-verx"></div>
+  <div class="stack"><button class="ghost" id="st-upd">تحقق من التحديث الآن</button></div>
+  <div class="hint" id="st-updres"></div>
   <h2 style="margin-top:26px">وضع المشاهدة فقط (للحاسبة الثانية)</h2>
   <div class="hint" style="margin-top:0">فعّله بحاسبة ثانية تريد تتفرّج بيها على بياناتك بدون ما تعدّل. يمنع أي إضافة أو تعديل أو حذف، وما يكتب فوق نسخة السحابة. لتحديث البيانات بهذي الحاسبة: «استرجاع من نسخة احتياطية» بنسخة جديدة من الحاسبة الرئيسية.</div>
   <label style="display:flex;gap:8px;align-items:center;font-weight:600;margin-top:10px"><input type="checkbox" id="st-vo"> هذي الحاسبة نسخة مشاهدة فقط</label>
@@ -626,7 +630,7 @@ let IMGV=Date.now();
 async function load(){
   try{D=await api("/api/data");IMGV=Date.now();document.body.classList.toggle("vo",!!D.viewonly);$("#vobar").classList.toggle("hide",!D.viewonly);if($("#st-vo"))$("#st-vo").checked=!!D.viewonly;$("#banner").classList.add("hide")}
   catch(e){const b=$("#banner");b.textContent=e.message;b.classList.remove("hide");return}
-  $("#cloudnote").classList.toggle("hide",!!(D.cloud&&D.cloud.dir)||!D.cloud||CNHIDE);$("#fileinfo").textContent="الملف: "+D.file;$("#fileinfo").title=D.data_dir||"";$("#appname").textContent=D.settings.name;document.title=D.settings.name;
+  $("#cloudnote").classList.toggle("hide",!!(D.cloud&&D.cloud.dir)||!D.cloud||CNHIDE);$("#fileinfo").textContent="الملف: "+D.file+" · النسخة "+D.version;if($("#st-verx"))$("#st-verx").textContent="النسخة المثبّتة عندك: "+D.version;$("#fileinfo").title=D.data_dir||"";$("#appname").textContent=D.settings.name;document.title=D.settings.name;
   if(qsel)qsel=byCode(qsel.code)||null;
   fillQUnit();renderAll();
 }
@@ -940,8 +944,10 @@ function updWait(box){
     if(Date.now()-t0>150000){clearInterval(iv);
       box.innerHTML=`<span>التحديث أخذ وقت أكثر من المعتاد. <b>سكّر هذي النافذة وافتح البرنامج من اختصار سطح المكتب</b>: غالباً تحدّث لحاله. إذا طلعت نسخة قديمة، نزّل المثبّت وثبّته فوقه (بياناتك ما تنمسح): <a href="https://github.com/Hussin51/restaurant-inventory/releases/download/inventory-latest/RestaurantInventory-Setup.exe" target="_blank" style="color:inherit;font-weight:700">رابط التثبيت</a></span>`}
   },2000)}
-async function checkUpdate(){
-  try{const u=await api("/api/update_check");if(!u.available)return;
+async function checkUpdate(manual){
+  try{const u=await api("/api/update_check");
+    if(manual){$("#st-updres").textContent=u.error?`ما كدرت أوصل لموقع التحديث (${u.error}). تأكد من الإنترنت أو من الجدار الناري، أو نزّل المثبّت يدوياً.`:u.available?`يتوفر تحديث ${u.latest} (نسختك ${u.current}). اضغط «حدّث الآن» من الشريط أعلى الصفحة.`:`عندك آخر نسخة (${u.current}).`;if(u.available)$("#setmodal").classList.remove("open")}
+    if(!u.available)return;
     const box=$("#upd");box.classList.remove("hide");
     box.innerHTML=`<span>يتوفر تحديث جديد <b>${esc(u.latest)}</b> (نسختك ${esc(u.current)}). بياناتك ما تتأثر وتنحفظ لها نسخة احتياطية قبل التحديث.</span><span style="display:flex;gap:8px"><button class="save" id="upd-go" style="margin:0;padding:8px 18px">حدّث الآن</button><button class="ghost" id="upd-x" style="padding:8px 14px">لاحقاً</button></span>`;
     $("#upd-x").onclick=()=>box.classList.add("hide");
@@ -1405,6 +1411,7 @@ function cloudUI(){const c=D.cloud||{};$("#st-cdir").value=c.dir||"";
 $("#st-csave").onclick=async()=>{try{await api("/api/cloud",{path:$("#st-cdir").value});await load();cloudUI();toast($("#st-cdir").value.trim()?"تم تفعيل النسخ السحابي":"تم إيقاف النسخ السحابي")}catch(e){toast(e.message,1)}};
 $("#st-cnow").onclick=async()=>{try{await api("/api/cloud_now",{});await load();cloudUI();toast("تم النسخ للسحابة")}catch(e){toast(e.message,1)}};
 $("#cn-go").onclick=()=>$("#setbtn").click();
+$("#st-upd").onclick=()=>{$("#st-updres").textContent="جاري الفحص...";checkUpdate(true)};
 $("#st-vo").onchange=async()=>{const on=$("#st-vo").checked;
   if(on&&!confirm("تفعّل وضع المشاهدة فقط بهذي الحاسبة؟\nما تكدر تعدّل ولا تضيف ولا تحذف إلا إذا رجّعته. (تكدر تسترجع نسخة جديدة وقت ما تريد).")){$("#st-vo").checked=false;return}
   try{await api("/api/viewonly",{on});await load();toast(on?"صارت نسخة مشاهدة فقط":"رجعت تشتغل عادي")}catch(e){toast(e.message,1);$("#st-vo").checked=!on}};
