@@ -103,6 +103,19 @@ class Data:
     def _vo_path(self):
         return os.path.join(self.dir, "view-only.flag")
 
+    def auto_update(self):
+        """التحديث التلقائي مفعّل افتراضياً، ويتعطل بعلامة محلية."""
+        return not os.path.exists(os.path.join(self.dir, "no-auto-update.flag"))
+
+    def set_auto_update(self, on):
+        f = os.path.join(self.dir, "no-auto-update.flag")
+        if on and os.path.exists(f):
+            os.remove(f)
+        elif not on:
+            os.makedirs(self.dir, exist_ok=True)
+            with open(f, "w", encoding="utf8") as fh:
+                fh.write("1")
+
     def viewonly(self):
         """وضع المشاهدة فقط (للحاسبة الثانية): علامة محلية خارج ملف الإكسل وخارج النسخ الاحتياطية."""
         return os.path.exists(self._vo_path())

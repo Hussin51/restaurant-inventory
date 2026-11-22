@@ -11,13 +11,13 @@ import clothes
 import updater
 from urllib.parse import urlparse, parse_qs, quote, unquote
 
-VERSION = "1.10.4"
+VERSION = "1.10.5"
 BASE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 LOCK = threading.Lock()
 PENDING = False
 LAST_WRITE = 0.0
 WRITE_PATHS = ("/api/movement", "/api/invoice", "/api/item", "/api/item_update", "/api/image", "/api/supplier", "/api/supplier_update", "/api/settings", "/api/restore", "/api/count", "/api/import_apply", "/api/inv_import_apply", "/api/sort_items", "/api/item_delete", "/api/items_delete", "/api/invoice_delete", "/api/supplier_delete", "/api/movement_delete", "/api/cl_item", "/api/cl_receive", "/api/cl_issue", "/api/cl_adjust", "/api/cl_doc_delete", "/api/cl_item_delete", "/api/cl_move_delete", "/api/cl_buy", "/api/cl_buy_delete")
-VIEW_OK = ("/api/pdf", "/api/viewonly", "/api/restore", "/api/quit", "/api/open", "/api/openfolder", "/api/update_install")
+VIEW_OK = ("/api/pdf", "/api/autoupdate", "/api/viewonly", "/api/restore", "/api/quit", "/api/open", "/api/openfolder", "/api/update_install")
 PDF_PAGES = {}
 FALLBACK_BROWSERS = ("/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/google-chrome")
 STORE = None
@@ -161,7 +161,10 @@ class H(BaseHTTPRequestHandler):
         elif path == "/api/ping":
             self.send(200, to_json(dict(app="jard-almat3am", version=VERSION)))
         elif path == "/api/update_check":
-            self.send(200, to_json(updater.check(VERSION)))
+            r = updater.check(VERSION)
+            if r.get("error") or r.get("available"):
+                ulog(f"check: current {VERSION} latest {r.get('latest')} available {r.get('available')} error {r.get('error', '')}")
+            self.send(200, to_json(r))
         elif path == "/api/invoice_template":
             body = importer.invoice_template()
             self.send_response(200)
@@ -175,7 +178,7 @@ class H(BaseHTTPRequestHandler):
                 with LOCK:
                     d = STORE.all()
                 d.update(categories=CATEGORIES + sorted({i["cat"] for i in d["items"] if i["cat"] and i["cat"] not in CATEGORIES}), types=TYPES, inv_types=list(INV_TYPES), depts=d["settings"]["depts"], warehouse=WAREHOUSE, units=UNITS, file=DATA.xlsx_name,
-                         data_dir=DATA.dir, version=VERSION, viewonly=DATA.viewonly(), backups=DATA.list_backups(),
+                         data_dir=DATA.dir, version=VERSION, viewonly=DATA.viewonly(), auto_update=DATA.auto_update(), backups=DATA.list_backups(),
                          cloud=dict(dir=DATA.cloud_dir(), last=DATA.last_cloud, error=DATA.cloud_error, detected=storage.detect_cloud_dirs()))
                 self.send(200, to_json(d))
             except Exception as e:
@@ -228,7 +231,10 @@ class H(BaseHTTPRequestHandler):
             return self.send(403, to_json(dict(error="هذي نسخة مشاهدة فقط: ما تنفع التعديلات. لتحديث البيانات: الإعدادات ← استرجاع من نسخة احتياطية")))
         try:
             res = {}
-            if p == "/api/pdf":
+            if p == "/api/autoupdate":
+                with LOCK:
+                    DATA.set_auto_update(bool(b.get("on")))
+            elif p == "/api/pdf":
                 size = b.get("size") if b.get("size") in ("A4", "A5", "A4 landscape") else "A4"
                 pdf = render_pdf(str(b.get("html") or ""), size)
                 return self.send(200, pdf, "application/pdf")

@@ -93,6 +93,18 @@ class HttpSecurityTests(unittest.TestCase):
             self.assertEqual(self.req("/api/pdf", body, ok), 400)                                           # ما فيه متصفح: رسالة واضحة مو انهيار
         self.assertEqual(self.req("/pdfpage/doesnotexist"), 404)
 
+    def test_auto_update_flag_defaults_on_and_toggles(self):
+        ok = {"X-Requested-With": "jard", "Origin": f"http://127.0.0.1:{self.port}"}
+        self.assertTrue(app.DATA.auto_update())
+        self.assertEqual(self.req("/api/autoupdate", {"on": False}, ok), 200)
+        try:
+            self.assertFalse(app.DATA.auto_update())
+            d = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{self.port}/api/data", timeout=30).read())
+            self.assertFalse(d["auto_update"])
+        finally:
+            self.assertEqual(self.req("/api/autoupdate", {"on": True}, ok), 200)
+        self.assertTrue(app.DATA.auto_update())
+
 
 if __name__ == "__main__":
     unittest.main()
