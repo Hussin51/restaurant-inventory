@@ -11,12 +11,12 @@ import clothes
 import updater
 from urllib.parse import urlparse, parse_qs, quote, unquote
 
-VERSION = "1.10.6"
+VERSION = "1.11.0"
 BASE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 LOCK = threading.Lock()
 PENDING = False
 LAST_WRITE = 0.0
-WRITE_PATHS = ("/api/movement", "/api/invoice", "/api/item", "/api/item_update", "/api/image", "/api/supplier", "/api/supplier_update", "/api/settings", "/api/restore", "/api/count", "/api/import_apply", "/api/inv_import_apply", "/api/sort_items", "/api/item_delete", "/api/items_delete", "/api/invoice_delete", "/api/supplier_delete", "/api/movement_delete", "/api/cl_item", "/api/cl_receive", "/api/cl_issue", "/api/cl_adjust", "/api/cl_doc_delete", "/api/cl_item_delete", "/api/cl_move_delete", "/api/cl_buy", "/api/cl_buy_delete")
+WRITE_PATHS = ("/api/movement", "/api/breakage", "/api/invoice", "/api/item", "/api/item_update", "/api/image", "/api/supplier", "/api/supplier_update", "/api/settings", "/api/restore", "/api/count", "/api/import_apply", "/api/inv_import_apply", "/api/sort_items", "/api/item_delete", "/api/items_delete", "/api/invoice_delete", "/api/supplier_delete", "/api/movement_delete", "/api/cl_item", "/api/cl_receive", "/api/cl_issue", "/api/cl_adjust", "/api/cl_doc_delete", "/api/cl_item_delete", "/api/cl_move_delete", "/api/cl_buy", "/api/cl_buy_delete")
 VIEW_OK = ("/api/pdf", "/api/autoupdate", "/api/viewonly", "/api/restore", "/api/quit", "/api/open", "/api/openfolder", "/api/update_install")
 PDF_PAGES = {}
 FALLBACK_BROWSERS = ("/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/google-chrome")
@@ -247,6 +247,11 @@ class H(BaseHTTPRequestHandler):
                     from datetime import datetime
                     d = datetime.strptime(b.get("date") or date.today().isoformat(), "%Y-%m-%d").date()
                     STORE.add_movement(d, b["item"], b["type"], q, b.get("frm", ""), b.get("to", ""), b.get("note", ""), unit=b.get("unit", "قطعة"))
+            elif p == "/api/breakage":
+                with LOCK:
+                    from datetime import datetime
+                    d = datetime.strptime(b.get("date") or date.today().isoformat(), "%Y-%m-%d").date()
+                    res["count"] = STORE.add_breakage(d, b.get("lines") or [], b.get("frm", ""), b.get("note", ""))
             elif p == "/api/update_install":
                 try:
                     info = updater.fetch_info()

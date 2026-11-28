@@ -487,6 +487,27 @@ class Store:
         self._write_move(wb, d, item, typ, qty, frm, to, note, inv)
         self._save(wb)
 
+    def add_breakage(self, d, lines, frm="", note=""):
+        """تسجيل تكسير لعدة مواد مرة وحدة (كل سطر حركة «كسر وضياع»)، بحفظ واحد."""
+        wb = self._open()
+        prepared = []
+        for l in lines or []:
+            item = _t(l.get("item"))
+            if not item and not l.get("qty"):
+                continue
+            qty = _pos(l.get("qty"), "الكمية", strict=True)
+            row = self._item_row(wb, name=item)
+            if row is None:
+                raise ValueError(f"المادة «{item}» غير موجودة")
+            qty = qty * self._factor(wb, row, l.get("unit") or "قطعة")
+            prepared.append((item, int(qty) if qty == int(qty) else qty, _t(l.get("note"))))
+        if not prepared:
+            raise ValueError("ضيف مادة وحدة على الأقل")
+        for item, qty, n in prepared:
+            self._write_move(wb, d, item, "كسر وضياع", qty, frm, "", n or note, "")
+        self._save(wb)
+        return len(prepared)
+
     def _write_move(self, wb, d, item, typ, qty, frm, to, note, inv):
         ws = wb[LOG_SHEET]
         r = _first_empty(ws, 2, L0)
