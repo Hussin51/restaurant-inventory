@@ -37,7 +37,7 @@ class BreakageTests(unittest.TestCase):
         self.assertEqual(self.s.all()["breakage"][0]["price"], 2500)
 
     def test_bad_input_saves_nothing(self):
-        for dept, lines in (("", [{"item": "صحن", "qty": 1}]), ("المطبخ", []), ("المطبخ", [{"item": "صحن", "qty": 0}]),
+        for dept, lines in (("المطبخ", []), ("المطبخ", [{"item": "صحن", "qty": 0}]),
                             ("المطبخ", [{"item": "صحن", "qty": 1}, {"item": "ما موجود", "qty": 1}])):
             with self.assertRaises(ValueError):
                 breakage.add(self.s, date.today(), dept, "", lines)
@@ -53,16 +53,16 @@ class BreakageTests(unittest.TestCase):
             breakage.delete(self.s, 99)
 
     def test_report_has_prices_and_totals(self):
-        breakage.add(self.s, date.today(), "المطبخ", "x", [{"item": "كاسة", "qty": 4}, {"item": "صحن", "qty": 2}])
-        breakage.add(self.s, date.today(), "البار", "", [{"item": "كاسة", "qty": 1}])
+        breakage.add(self.s, date.today(), "", "x", [{"item": "كاسة", "qty": 4}, {"item": "صحن", "qty": 2}])
+        breakage.add(self.s, date.today(), "", "", [{"item": "كاسة", "qty": 1}])
         r = reports.build("breakage", self.s.all())
         cards = {c["label"]: c["value"] for c in r["cards"]}
         self.assertEqual(cards["إجمالي القطع المتكسرة"], 7)
         self.assertEqual(cards["قيمة التكسير (دينار)"], 5 * 1000 + 2 * 2500)
         by_item = r["tables"][0]["rows"]
         self.assertEqual((by_item[0][1], by_item[0][3], by_item[0][4]), ("كاسة", 1000, 5000))
-        self.assertEqual({row[0]: row[2] for row in r["tables"][1]["rows"]}, {"المطبخ": 4000 + 5000, "البار": 1000})
-        self.assertEqual(len(r["tables"][2]["rows"]), 3)
+        self.assertEqual(len(r["tables"]), 2)
+        self.assertEqual(len(r["tables"][1]["rows"]), 3)
         self.assertEqual(reports.build("breakage", self.s.all(), "2000-01-01", "2000-01-31")["cards"][1]["value"], 0)
         self.assertTrue(reports.build_xlsx(r, "مطعم")[:2] == b"PK")
 

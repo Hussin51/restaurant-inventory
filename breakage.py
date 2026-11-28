@@ -7,7 +7,7 @@ from core import CUR_USD, _pos, _s, _t, _d, _first_empty, _make_sheet, _style_ro
 
 BK = "تكسير_الأقسام"
 B0 = 5
-COLS = ["التاريخ", "الكود", "المادة", "الكمية (قطعة)", "القسم", "ملاحظات", "سعر القطعة (دينار)", "القيمة (دينار)"]
+COLS = ["التاريخ", "الكود", "المادة", "الكمية (قطعة)", "القسم (اختياري)", "ملاحظات", "سعر القطعة (دينار)", "القيمة (دينار)"]
 
 
 def ensure_schema(wb):
@@ -29,8 +29,6 @@ def read(wb):
 
 def add(store, d, dept, note, lines):
     dept = _t(dept)
-    if not dept:
-        raise ValueError("اكتب أو اختار القسم")
     wb = store._open()
     iws = wb[core.ITEMS_SHEET]
     rate = store._rate(wb)
@@ -54,7 +52,7 @@ def add(store, d, dept, note, lines):
     for code, name, qty, n, price in prepared:
         r = _first_empty(ws, 2, B0)
         ws.cell(r, 1, d).number_format = "yyyy-mm-dd"
-        for c, v in ((2, code), (3, name), (4, qty), (5, dept), (6, n or _t(note) or None), (7, price)):
+        for c, v in ((2, code), (3, name), (4, qty), (5, dept or None), (6, n or _t(note) or None), (7, price)):
             ws.cell(r, c, v)
         ws.cell(r, 8, f"=D{r}*G{r}").number_format = "#,##0"
         ws.cell(r, 7).number_format = "#,##0"

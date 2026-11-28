@@ -444,8 +444,8 @@ tbody tr:hover td{background:var(--soft)}
   <!-- التكسير -->
   <section id="v-brk" class="hide">
     <div class="card pad" id="bk-form">
-      <h2>تسجيل تكسير الأقسام</h2><p class="hint" style="margin:0">للتقرير فقط: ما ينقص من رصيد المخزن.</p>
-      <div class="row3" style="margin-top:6px"><div><label>التاريخ</label><input id="bk-date" type="date"></div><div><label>القسم</label><input id="bk-frm" list="bkdepts" placeholder="اختار القسم"></div><datalist id="bkdepts"></datalist><div><label>ملاحظة (اختياري)</label><input id="bk-note" placeholder="مثلاً: انكسروا بالغسيل"></div></div>
+      <h2>تسجيل تكسير</h2><p class="hint" style="margin:0">للتقرير فقط: ما ينقص من رصيد المخزن.</p>
+      <div class="row" style="margin-top:6px"><div><label>التاريخ</label><input id="bk-date" type="date"></div><div><label>ملاحظة (اختياري)</label><input id="bk-note" placeholder="مثلاً: انكسروا بالغسيل"></div></div>
       <div class="tw" style="overflow:visible;margin-top:14px"><table class="lines"><thead><tr><th style="width:44px">#</th><th>المادة</th><th style="width:110px">الكمية المتكسرة</th><th style="width:104px">الوحدة</th><th style="width:150px">القيمة (دينار)</th><th style="width:44px"></th></tr></thead><tbody id="bk-lines"></tbody></table></div>
       <button class="ghost" id="bk-add" style="margin-top:12px">+ إضافة مادة</button>
       <div class="sum" id="bk-sum"></div>
@@ -454,7 +454,7 @@ tbody tr:hover td{background:var(--soft)}
     <div class="tools" style="margin-top:20px"><div class="chips" id="bk-per"></div><div style="margin-inline-start:auto;display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" id="bk-print">طباعة التقرير</button><button class="ghost" id="bk-pdf">تنزيل PDF</button><button class="primary" id="bk-xlsx">تصدير إكسل</button></div></div>
     <div class="card pad" id="bk-rep" style="margin-top:14px"></div>
     <h2 style="margin:22px 4px 10px">سجل التكسير</h2>
-    <div class="card tw"><table><thead><tr><th>التاريخ</th><th>المادة</th><th class="num">الكمية</th><th class="num">القيمة (دينار)</th><th>القسم</th><th>ملاحظة</th><th></th></tr></thead><tbody id="bk-body"></tbody></table></div>
+    <div class="card tw"><table><thead><tr><th>التاريخ</th><th>المادة</th><th class="num">الكمية</th><th class="num">القيمة (دينار)</th><th>ملاحظة</th><th></th></tr></thead><tbody id="bk-body"></tbody></table></div>
   </section>
 
 </main>
@@ -653,7 +653,7 @@ async function load(){
   fillQUnit();renderAll();
 }
 function renderAll(){renderDash();if(typeof renderSegs==="function")renderSegs();renderStats();renderInfo();renderAlerts();renderItems();renderLog();renderQTypes();renderInvoices();renderSuppliers();renderInvForm();renderLoans();renderCount();renderClothes();if(CURV==="brk"){renderBkLines();renderBk()}if(CURV==="reports"){reportsUI();runReport()}
-  $("#depts").innerHTML=[D.warehouse,...D.depts].map(d=>`<option value="${esc(d)}">`).join("");if($("#bkdepts"))$("#bkdepts").innerHTML=D.depts.map(d=>`<option value="${esc(d)}">`).join("");
+  $("#depts").innerHTML=[D.warehouse,...D.depts].map(d=>`<option value="${esc(d)}">`).join("");
   $("#im-cat").innerHTML=D.categories.map(c=>`<option>${esc(c)}</option>`).join("")}
 
 /* ---------- مختار المواد (قائمة منسدلة مشتركة) ---------- */
@@ -1106,7 +1106,7 @@ $("#ln-go").onclick=()=>go("loans");
 
 /* ---------- التقارير ---------- */
 let RK="reorder",RP="month",RD={dept:"",supplier:"",from:"",to:"",factor:2};
-const RKINDS=[["reorder","قائمة طلب شراء"],["breakage","تكسير الأقسام"],["movement","المشتريات والإخراج"],["dept","تقرير قسم"],["supplier","كشف حساب مورد"],["location","توزيع الأقسام"]];
+const RKINDS=[["reorder","قائمة طلب شراء"],["breakage","تقرير التكسير"],["movement","المشتريات والإخراج"],["dept","تقرير قسم"],["supplier","كشف حساب مورد"],["location","توزيع الأقسام"]];
 const RPER=[["today","اليوم"],["week","آخر 7 أيام"],["month","هذا الشهر"],["lastmonth","الشهر الماضي"],["all","كل الفترة"]];
 const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 function periodRange(k){const n=new Date(),t=ymd(n);
@@ -1401,7 +1401,7 @@ let CURV="dash";
 /* ---------- التكسير ---------- */
 let BK=[{}],BKP="month";
 const byName=n=>D.items.find(i=>i.name===n);
-const bkReset=()=>{BK=[{}];$("#bk-frm").value="";$("#bk-note").value="";renderBkLines()};
+const bkReset=()=>{BK=[{}];$("#bk-note").value="";renderBkLines()};
 function bkSum(){let q=0,v=0;BK.forEach((l,i)=>{const it=l.code&&byCode(l.code),pcs=(+l.qty||0)*factor(it,l.unit||"قطعة"),val=pcs*(it?it.price_iqd||0:0);q+=pcs;v+=val;
   const c=$("#bk-lines").querySelector(`tr[data-i="${i}"] .tot`);if(c)c.textContent=l.code?fmt(val):"—"});
   $("#bk-sum").innerHTML=`<span>عدد المواد: <b>${BK.filter(l=>l.code).length}</b></span><span>مجموع القطع: <b>${fmt(q)}</b></span><span>قيمة التكسير: <b>${fmt(v)} دينار</b></span>`}
@@ -1426,23 +1426,24 @@ $("#bk-save").onclick=async()=>{
   const ls=BK.filter(l=>l.code||+l.qty>0);
   if(!ls.length)return toast("ضيف مادة وحدة على الأقل",1);
   if(ls.some(l=>!l.code||!(+l.qty>0)))return toast("كل سطر لازم فيه مادة وكمية",1);
-  const frm=$("#bk-frm").value.trim();if(!frm)return toast("اكتب أو اختار القسم",1);
   const b=$("#bk-save");b.disabled=true;
-  try{await api("/api/breakage",{date:$("#bk-date").value,dept:frm,note:$("#bk-note").value,lines:ls.map(l=>({item:l.name,qty:+l.qty,unit:l.unit||"قطعة"}))});
+  try{await api("/api/breakage",{date:$("#bk-date").value,note:$("#bk-note").value,lines:ls.map(l=>({item:l.name,qty:+l.qty,unit:l.unit||"قطعة"}))});
     toast(`تم تسجيل التكسير: ${ls.length} مادة`);BK=[{}];$("#bk-note").value="";await load();renderBkLines()}
   catch(e){toast(e.message,1)}finally{b.disabled=false}};
 const bkQS=()=>{const[a,b]=periodRange(BKP);return new URLSearchParams({kind:"breakage",from:a,to:b}).toString()};
+let BKSEQ=0;
 async function renderBk(){
+  const seq=++BKSEQ;
   $("#bk-per").innerHTML=RPER.map(([k,t])=>`<button class="chip ${k===BKP?'on':''}" data-p="${k}">${t}</button>`).join("");
   document.querySelectorAll("#bk-per .chip").forEach(b=>b.onclick=()=>{BKP=b.dataset.p;renderBk()});
   const[a,b]=periodRange(BKP);
   const ms=(D.breakage||[]).filter(m=>(!a||String(m.date).slice(0,10)>=a)&&(!b||String(m.date).slice(0,10)<=b)).reverse();
   $("#bk-body").innerHTML=ms.map(m=>{const it=byName(m.item),v=m.value;
-    return`<tr><td>${esc(String(m.date).slice(0,10))}</td><td class="name">${it?thumb(it,1):""} ${esc(m.item)}</td><td class="num">${fmt(m.qty)}</td><td class="num">${fmt(v)}</td><td>${esc(m.dept||"—")}</td><td>${esc(m.note||"")}</td><td><button class="ghost" data-row="${m.row}" style="padding:5px 12px">حذف</button></td></tr>`}).join("")||`<tr><td colspan="7" class="empty">ما كو تكسير بهالفترة</td></tr>`;
+    return`<tr><td>${esc(String(m.date).slice(0,10))}</td><td class="name">${it?thumb(it,1):""} ${esc(m.item)}</td><td class="num">${fmt(m.qty)}</td><td class="num">${fmt(v)}</td><td>${esc(m.note||"")}</td><td><button class="ghost" data-row="${m.row}" style="padding:5px 12px">حذف</button></td></tr>`}).join("")||`<tr><td colspan="6" class="empty">ما كو تكسير بهالفترة</td></tr>`;
   document.querySelectorAll("#bk-body button[data-row]").forEach(x=>x.onclick=async()=>{if(!confirm("تحذف هذا التسجيل؟"))return;
     try{await api("/api/breakage_delete",{row:+x.dataset.row});toast("تم الحذف");await load()}catch(e){toast(e.message,1)}});
-  try{const r=await api("/api/report?"+bkQS());if(CURV!=="brk")return;$("#bk-rep").innerHTML=repHTML(r)}
-  catch(e){$("#bk-rep").innerHTML=`<p style="padding:20px;text-align:center;color:#B91C1C;font-weight:700">${esc(e.message)}</p>`}}
+  try{const r=await api("/api/report?"+bkQS());if(CURV!=="brk"||seq!==BKSEQ)return;$("#bk-rep").innerHTML=repHTML(r)}
+  catch(e){if(seq!==BKSEQ)return;$("#bk-rep").innerHTML=`<p style="padding:20px;text-align:center;color:#B91C1C;font-weight:700">${esc(e.message)}</p>`}}
 $("#bk-print").onclick=async()=>{try{printHTML(repHTML(await api("/api/report?"+bkQS())))}catch(e){toast(e.message,1)}};
 $("#bk-pdf").onclick=async()=>{try{pdfFrom(repHTML(await api("/api/report?"+bkQS())),"A4","تقرير_التكسير")}catch(e){toast(e.message,1)}};
 $("#bk-xlsx").onclick=()=>{location.href="/api/report_xlsx?"+bkQS()};
