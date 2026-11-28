@@ -444,8 +444,8 @@ tbody tr:hover td{background:var(--soft)}
   <!-- التكسير -->
   <section id="v-brk" class="hide">
     <div class="card pad" id="bk-form">
-      <h2>تسجيل تكسير</h2>
-      <div class="row3" style="margin-top:6px"><div><label>التاريخ</label><input id="bk-date" type="date"></div><div><label>من قسم / جهة</label><input id="bk-frm" list="depts" placeholder="المخزن (افتراضي)"></div><div><label>ملاحظة (اختياري)</label><input id="bk-note" placeholder="مثلاً: انكسروا بالغسيل"></div></div>
+      <h2>تسجيل تكسير الأقسام</h2><p class="hint" style="margin:0">للتقرير فقط: ما ينقص من رصيد المخزن.</p>
+      <div class="row3" style="margin-top:6px"><div><label>التاريخ</label><input id="bk-date" type="date"></div><div><label>القسم</label><input id="bk-frm" list="bkdepts" placeholder="اختار القسم"></div><datalist id="bkdepts"></datalist><div><label>ملاحظة (اختياري)</label><input id="bk-note" placeholder="مثلاً: انكسروا بالغسيل"></div></div>
       <div class="tw" style="overflow:visible;margin-top:14px"><table class="lines"><thead><tr><th style="width:44px">#</th><th>المادة</th><th style="width:110px">الكمية المتكسرة</th><th style="width:104px">الوحدة</th><th style="width:150px">القيمة (دينار)</th><th style="width:44px"></th></tr></thead><tbody id="bk-lines"></tbody></table></div>
       <button class="ghost" id="bk-add" style="margin-top:12px">+ إضافة مادة</button>
       <div class="sum" id="bk-sum"></div>
@@ -653,7 +653,7 @@ async function load(){
   fillQUnit();renderAll();
 }
 function renderAll(){renderDash();if(typeof renderSegs==="function")renderSegs();renderStats();renderInfo();renderAlerts();renderItems();renderLog();renderQTypes();renderInvoices();renderSuppliers();renderInvForm();renderLoans();renderCount();renderClothes();if(CURV==="brk"){renderBkLines();renderBk()}if(CURV==="reports"){reportsUI();runReport()}
-  $("#depts").innerHTML=[D.warehouse,...D.depts].map(d=>`<option value="${esc(d)}">`).join("");
+  $("#depts").innerHTML=[D.warehouse,...D.depts].map(d=>`<option value="${esc(d)}">`).join("");if($("#bkdepts"))$("#bkdepts").innerHTML=D.depts.map(d=>`<option value="${esc(d)}">`).join("");
   $("#im-cat").innerHTML=D.categories.map(c=>`<option>${esc(c)}</option>`).join("")}
 
 /* ---------- مختار المواد (قائمة منسدلة مشتركة) ---------- */
@@ -1106,7 +1106,7 @@ $("#ln-go").onclick=()=>go("loans");
 
 /* ---------- التقارير ---------- */
 let RK="reorder",RP="month",RD={dept:"",supplier:"",from:"",to:"",factor:2};
-const RKINDS=[["reorder","قائمة طلب شراء"],["breakage","تقرير التكسير"],["movement","المشتريات والإخراج"],["dept","تقرير قسم"],["supplier","كشف حساب مورد"],["location","توزيع الأقسام"]];
+const RKINDS=[["reorder","قائمة طلب شراء"],["breakage","تكسير الأقسام"],["movement","المشتريات والإخراج"],["dept","تقرير قسم"],["supplier","كشف حساب مورد"],["location","توزيع الأقسام"]];
 const RPER=[["today","اليوم"],["week","آخر 7 أيام"],["month","هذا الشهر"],["lastmonth","الشهر الماضي"],["all","كل الفترة"]];
 const ymd=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 function periodRange(k){const n=new Date(),t=ymd(n);
@@ -1407,7 +1407,7 @@ function bkSum(){let q=0,v=0;BK.forEach((l,i)=>{const it=l.code&&byCode(l.code),
   $("#bk-sum").innerHTML=`<span>عدد المواد: <b>${BK.filter(l=>l.code).length}</b></span><span>مجموع القطع: <b>${fmt(q)}</b></span><span>قيمة التكسير: <b>${fmt(v)} دينار</b></span>`}
 function renderBkLines(){
   $("#bk-lines").innerHTML=BK.map((l,i)=>{const it=l.code&&byCode(l.code),us=unitsOf(it);if(!us.includes(l.unit))l.unit="قطعة";
-    return`<tr data-i="${i}"><td class="num">${i+1}</td><td><div style="display:flex;gap:10px;align-items:center">${it?thumb(it):""}<div style="flex:1;min-width:0"><input class="pk" placeholder="الكود أو اسم المادة" value="${esc(l.code?`${l.code} · ${l.name}`:"")}">${it?`<div class="sub">المتبقي بالمخزن: ${fmt(it.balance)} قطعة · سعر القطعة ${fmt(it.price_iqd||0)} دينار</div>`:""}</div></div></td>
+    return`<tr data-i="${i}"><td class="num">${i+1}</td><td><div style="display:flex;gap:10px;align-items:center">${it?thumb(it):""}<div style="flex:1;min-width:0"><input class="pk" placeholder="الكود أو اسم المادة" value="${esc(l.code?`${l.code} · ${l.name}`:"")}">${it?`<div class="sub">سعر القطعة ${fmt(it.price_iqd||0)} دينار</div>`:""}</div></div></td>
      <td><input class="q num" type="number" min="0" step="any" value="${l.qty??""}" placeholder="الكمية"></td>
      <td><select class="u">${us.map(u=>`<option ${u===l.unit?"selected":""}>${u}</option>`).join("")}</select></td>
      <td class="num tot">—</td><td><button class="x" title="حذف">✕</button></td></tr>`}).join("");
@@ -1426,11 +1426,9 @@ $("#bk-save").onclick=async()=>{
   const ls=BK.filter(l=>l.code||+l.qty>0);
   if(!ls.length)return toast("ضيف مادة وحدة على الأقل",1);
   if(ls.some(l=>!l.code||!(+l.qty>0)))return toast("كل سطر لازم فيه مادة وكمية",1);
-  const frm=$("#bk-frm").value.trim(),wh=!frm||frm===D.warehouse;
-  const over=wh&&ls.filter(l=>{const it=byCode(l.code);return it&&(+l.qty)*factor(it,l.unit)>it.balance});
-  if(over&&over.length&&!confirm(`${over.map(l=>l.name).join("، ")}: الكمية أكبر من المتبقي بالمخزن. تكمل؟`))return;
+  const frm=$("#bk-frm").value.trim();if(!frm)return toast("اكتب أو اختار القسم",1);
   const b=$("#bk-save");b.disabled=true;
-  try{await api("/api/breakage",{date:$("#bk-date").value,frm,note:$("#bk-note").value,lines:ls.map(l=>({item:l.name,qty:+l.qty,unit:l.unit||"قطعة"}))});
+  try{await api("/api/breakage",{date:$("#bk-date").value,dept:frm,note:$("#bk-note").value,lines:ls.map(l=>({item:l.name,qty:+l.qty,unit:l.unit||"قطعة"}))});
     toast(`تم تسجيل التكسير: ${ls.length} مادة`);BK=[{}];$("#bk-note").value="";await load();renderBkLines()}
   catch(e){toast(e.message,1)}finally{b.disabled=false}};
 const bkQS=()=>{const[a,b]=periodRange(BKP);return new URLSearchParams({kind:"breakage",from:a,to:b}).toString()};
@@ -1438,11 +1436,11 @@ async function renderBk(){
   $("#bk-per").innerHTML=RPER.map(([k,t])=>`<button class="chip ${k===BKP?'on':''}" data-p="${k}">${t}</button>`).join("");
   document.querySelectorAll("#bk-per .chip").forEach(b=>b.onclick=()=>{BKP=b.dataset.p;renderBk()});
   const[a,b]=periodRange(BKP);
-  const ms=D.moves.filter(m=>m.type==="كسر وضياع"&&(!a||String(m.date).slice(0,10)>=a)&&(!b||String(m.date).slice(0,10)<=b)).reverse();
-  $("#bk-body").innerHTML=ms.map(m=>{const it=byName(m.item),v=m.qty*((it&&it.price_iqd)||0);
-    return`<tr><td>${esc(String(m.date).slice(0,10))}</td><td class="name">${it?thumb(it,1):""} ${esc(m.item)}</td><td class="num">${fmt(m.qty)}</td><td class="num">${fmt(v)}</td><td>${esc(m.frm||"المخزن")}</td><td>${esc(m.note||"")}</td><td><button class="ghost" data-row="${m.row}" style="padding:5px 12px">حذف</button></td></tr>`}).join("")||`<tr><td colspan="7" class="empty">ما كو تكسير بهالفترة</td></tr>`;
-  document.querySelectorAll("#bk-body button[data-row]").forEach(x=>x.onclick=async()=>{if(!confirm("تحذف هذا التسجيل؟ (الكمية ترجع للرصيد)"))return;
-    try{await api("/api/movement_delete",{row:+x.dataset.row});toast("تم الحذف");await load()}catch(e){toast(e.message,1)}});
+  const ms=(D.breakage||[]).filter(m=>(!a||String(m.date).slice(0,10)>=a)&&(!b||String(m.date).slice(0,10)<=b)).reverse();
+  $("#bk-body").innerHTML=ms.map(m=>{const it=byName(m.item),v=m.value;
+    return`<tr><td>${esc(String(m.date).slice(0,10))}</td><td class="name">${it?thumb(it,1):""} ${esc(m.item)}</td><td class="num">${fmt(m.qty)}</td><td class="num">${fmt(v)}</td><td>${esc(m.dept||"—")}</td><td>${esc(m.note||"")}</td><td><button class="ghost" data-row="${m.row}" style="padding:5px 12px">حذف</button></td></tr>`}).join("")||`<tr><td colspan="7" class="empty">ما كو تكسير بهالفترة</td></tr>`;
+  document.querySelectorAll("#bk-body button[data-row]").forEach(x=>x.onclick=async()=>{if(!confirm("تحذف هذا التسجيل؟"))return;
+    try{await api("/api/breakage_delete",{row:+x.dataset.row});toast("تم الحذف");await load()}catch(e){toast(e.message,1)}});
   try{const r=await api("/api/report?"+bkQS());if(CURV!=="brk")return;$("#bk-rep").innerHTML=repHTML(r)}
   catch(e){$("#bk-rep").innerHTML=`<p style="padding:20px;text-align:center;color:#B91C1C;font-weight:700">${esc(e.message)}</p>`}}
 $("#bk-print").onclick=async()=>{try{printHTML(repHTML(await api("/api/report?"+bkQS())))}catch(e){toast(e.message,1)}};

@@ -138,25 +138,23 @@ def movement(data, a="", b=""):
 # ---------------------------------------------------------------- تقرير قسم
 def breakage(data, a="", b=""):
     items = _items(data)
-    rows = [m for m in data["moves"] if m["type"] == "كسر وضياع" and _in(m["date"], a, b)]
-    by_item, by_loc, detail = {}, {}, []
-    for m in sorted(rows, key=lambda x: (_iso(x["date"]), x.get("row", 0))):
+    rows = [m for m in data.get("breakage", []) if _in(m["date"], a, b)]
+    by_item, by_dept, detail = {}, {}, []
+    for m in sorted(rows, key=lambda x: (_iso(x["date"]), x["row"])):
         it = items.get(m["item"], {})
-        price = it.get("price_iqd") or 0
-        val = m["qty"] * price
-        x = by_item.setdefault(m["item"], [it.get("code", ""), 0, 0.0])
+        x = by_item.setdefault(m["item"], [m["code"], 0, 0.0])
         x[1] += m["qty"]
-        x[2] += val
-        loc = m["frm"] or "المخزن"
-        y = by_loc.setdefault(loc, [0, 0.0])
+        x[2] += m["value"]
+        y = by_dept.setdefault(m["dept"] or "—", [0, 0.0])
         y[0] += m["qty"]
-        y[1] += val
-        detail.append([_iso(m["date"]), it.get("code", ""), m["item"], qty_text(it, m["qty"]), price, val, loc, m["note"] or ""])
+        y[1] += m["value"]
+        detail.append([_iso(m["date"]), m["code"], m["item"], qty_text(it, m["qty"]), m["price"], m["value"], m["dept"] or "—", m["note"] or ""])
     total_q = sum(v[1] for v in by_item.values())
     total_v = sum(v[2] for v in by_item.values())
     top = max(by_item.items(), key=lambda kv: kv[1][2])[0] if by_item else ""
+    avg = {k: (v[2] / v[1] if v[1] else 0) for k, v in by_item.items()}
     return {
-        "kind": "breakage", "title": "تقرير التكسير", "subtitle": _period(a, b),
+        "kind": "breakage", "title": "تقرير تكسير الأقسام", "subtitle": _period(a, b),
         "cards": [
             {"label": "عدد المواد المتكسرة", "value": len(by_item)},
             {"label": "إجمالي القطع المتكسرة", "value": total_q, "tone": "bad" if total_q else ""},
@@ -165,13 +163,12 @@ def breakage(data, a="", b=""):
         ],
         "tables": [
             _table("التكسير حسب المادة", ["الكود", "المادة", "الكمية المتكسرة", "سعر القطعة (دينار)", "القيمة (دينار)"],
-                   [[v[0], k, qty_text(items.get(k), v[1]), items.get(k, {}).get("price_iqd") or 0, v[2]]
-                    for k, v in sorted(by_item.items(), key=lambda kv: -kv[1][2])], (3, 4)),
-            _table("التكسير حسب القسم / الجهة", ["القسم", "القطع", "القيمة (دينار)"],
-                   [[k, *v] for k, v in sorted(by_loc.items(), key=lambda kv: -kv[1][1])], (1, 2)),
+                   [[v[0], k, qty_text(items.get(k), v[1]), avg[k], v[2]] for k, v in sorted(by_item.items(), key=lambda kv: -kv[1][2])], (3, 4)),
+            _table("التكسير حسب القسم", ["القسم", "القطع", "القيمة (دينار)"],
+                   [[k, *v] for k, v in sorted(by_dept.items(), key=lambda kv: -kv[1][1])], (1, 2)),
             _table("التفاصيل", ["التاريخ", "الكود", "المادة", "الكمية", "سعر القطعة (دينار)", "القيمة (دينار)", "القسم", "ملاحظة"], detail, (4, 5)),
         ],
-        "note": f"القيمة = الكمية المتكسرة × سعر القطعة الحالي بالدينار (مواد الدولار بسعر الصرف الحالي {data.get('settings', {}).get('rate', 0):,.0f}).",
+        "note": "تقرير فقط: التكسير هنا ما ينقص من رصيد المخزن. القيمة = الكمية × سعر القطعة وقت التسجيل بالدينار (مواد الدولار بسعر الصرف وقتها).",
     }
 
 

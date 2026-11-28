@@ -275,6 +275,8 @@ class Store:
                 lw.cell(r, 5, DIR_FORMULA.format(r=r))
         import clothes                                         # قسم الملابس (أوراق مستقلة)
         clothes.ensure_schema(wb)
+        import breakage                                        # تكسير الأقسام (للتقرير فقط)
+        breakage.ensure_schema(wb)
         hv = wb[INV_SHEET]
         if hv["K4"].value != "العملة":
             for col, hd, w in ((11, "العملة", 12), (12, "سعر الصرف", 12), (13, "الإجمالي بالدينار", 18), (14, "الخصم", 12)):
@@ -413,8 +415,8 @@ class Store:
         moves = self._read_moves(wb)
         items = self._read_items(wb, moves)
         invoices = self._read_invoices(wb)
-        import clothes
-        return dict(items=items, moves=moves, suppliers=self._read_suppliers(wb), invoices=invoices, clothes=clothes.read(wb),
+        import clothes, breakage
+        return dict(items=items, breakage=breakage.read(wb), moves=moves, suppliers=self._read_suppliers(wb), invoices=invoices, clothes=clothes.read(wb),
                     loans=self.open_loans(invoices),
                     settings={"name": _s(wb[SET_SHEET]["B5"].value) or DEFAULT_NAME, "depts": self._depts(wb), "rate": self._rate(wb)})
 
@@ -486,27 +488,6 @@ class Store:
         qty = int(qty) if qty == int(qty) else qty
         self._write_move(wb, d, item, typ, qty, frm, to, note, inv)
         self._save(wb)
-
-    def add_breakage(self, d, lines, frm="", note=""):
-        """تسجيل تكسير لعدة مواد مرة وحدة (كل سطر حركة «كسر وضياع»)، بحفظ واحد."""
-        wb = self._open()
-        prepared = []
-        for l in lines or []:
-            item = _t(l.get("item"))
-            if not item and not l.get("qty"):
-                continue
-            qty = _pos(l.get("qty"), "الكمية", strict=True)
-            row = self._item_row(wb, name=item)
-            if row is None:
-                raise ValueError(f"المادة «{item}» غير موجودة")
-            qty = qty * self._factor(wb, row, l.get("unit") or "قطعة")
-            prepared.append((item, int(qty) if qty == int(qty) else qty, _t(l.get("note"))))
-        if not prepared:
-            raise ValueError("ضيف مادة وحدة على الأقل")
-        for item, qty, n in prepared:
-            self._write_move(wb, d, item, "كسر وضياع", qty, frm, "", n or note, "")
-        self._save(wb)
-        return len(prepared)
 
     def _write_move(self, wb, d, item, typ, qty, frm, to, note, inv):
         ws = wb[LOG_SHEET]
